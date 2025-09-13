@@ -33,7 +33,7 @@ import (
 
 var (
 	Bridge         *bridge.Bridge
-	RunList        sync.Map //map[int]interface{}
+	RunList        sync.Map // map[int]interface{}
 	once           sync.Once
 	HttpProxyCache = index.NewAnyIntIndex()
 )
@@ -75,14 +75,15 @@ func InitFromDb() {
 		}
 	}
 
-	//Add a public password
+	// Add a public password
 	if vkey := beego.AppConfig.String("public_vkey"); vkey != "" {
 		c := file.NewClient(vkey, true, true)
+		c.Id = -2
 		_ = file.GetDb().NewClient(c)
 		RunList.Store(c.Id, nil)
-		//RunList[c.Id] = nil
+		// RunList[c.Id] = nil
 	}
-	//Initialize services in server-side files
+	// Initialize services in server-side files
 	file.GetDb().JsonDb.Tasks.Range(func(key, value interface{}) bool {
 		if value.(*file.Tunnel).Status {
 			_ = AddTask(value.(*file.Tunnel))
@@ -101,7 +102,7 @@ func DealBridgeTask() {
 			}
 		case t := <-Bridge.OpenTask:
 			if t != nil {
-				//_ = AddTask(t)
+				// _ = AddTask(t)
 				_ = StopServer(t.Id)
 				if err := StartTask(t.Id); err != nil {
 					logs.Error("StartTask(%d) error: %v", t.Id, err)
@@ -118,7 +119,7 @@ func DealBridgeTask() {
 					_ = file.GetDb().DelClient(id)
 				}
 			}
-		//case tunnel := <-Bridge.OpenTask:
+		// case tunnel := <-Bridge.OpenTask:
 		//	_ = StartTask(tunnel.Id)
 		case s := <-Bridge.SecretChan:
 			if s != nil {
@@ -170,7 +171,7 @@ func StartNewServer(bridgePort int, cnf *file.Tunnel, bridgeType string, bridgeD
 			logs.Error("%v", err)
 		}
 		RunList.Store(cnf.Id, svr)
-		//RunList[cnf.Id] = svr
+		// RunList[cnf.Id] = svr
 	} else {
 		logs.Error("Incorrect startup mode %s", cnf.Mode)
 	}
@@ -213,8 +214,8 @@ func NewMode(Bridge *bridge.Bridge, c *file.Tunnel) proxy.Service {
 		service = proxy.NewTunnelModeServer(proxy.ProcessTunnel, Bridge, c, allowLocalProxy)
 	case "mixProxy", "socks5", "httpProxy":
 		service = proxy.NewTunnelModeServer(proxy.ProcessMix, Bridge, c, allowLocalProxy)
-		//service = proxy.NewSock5ModeServer(Bridge, c)
-		//service = proxy.NewTunnelModeServer(proxy.ProcessHttp, Bridge, c)
+		// service = proxy.NewSock5ModeServer(Bridge, c)
+		// service = proxy.NewTunnelModeServer(proxy.ProcessHttp, Bridge, c)
 	case "tcpTrans":
 		service = proxy.NewTunnelModeServer(proxy.HandleTrans, Bridge, c, allowLocalProxy)
 	case "udp":
@@ -232,8 +233,8 @@ func NewMode(Bridge *bridge.Bridge, c *file.Tunnel) proxy.Service {
 		httpPort, _ := beego.AppConfig.Int("http_proxy_port")
 		httpsPort, _ := beego.AppConfig.Int("https_proxy_port")
 		http3Port := beego.AppConfig.DefaultInt("http3_proxy_port", httpsPort)
-		//useCache, _ := beego.AppConfig.Bool("http_cache")
-		//cacheLen, _ := beego.AppConfig.Int("http_cache_length")
+		// useCache, _ := beego.AppConfig.Bool("http_cache")
+		// cacheLen, _ := beego.AppConfig.Int("http_cache_length")
 		addOrigin, _ := beego.AppConfig.Bool("http_add_origin_header")
 		httpOnlyPass := beego.AppConfig.String("x_nps_http_only")
 		service = httpproxy.NewHttpProxy(Bridge, c, httpPort, httpsPort, http3Port, httpOnlyPass, addOrigin, allowLocalProxy, HttpProxyCache)
@@ -250,7 +251,7 @@ func StopServer(id int) error {
 		logs.Info("close port %d,remark %s,client id %d,task id %d", t.Port, t.Remark, t.Client.Id, t.Id)
 		_ = file.GetDb().UpdateTask(t)
 	}
-	//if v, ok := RunList[id]; ok {
+	// if v, ok := RunList[id]; ok {
 	if v, ok := RunList.Load(id); ok {
 		if svr, ok := v.(proxy.Service); ok {
 			if err := svr.Close(); err != nil {
@@ -260,7 +261,7 @@ func StopServer(id int) error {
 		} else {
 			logs.Warn("stop server id %d error", id)
 		}
-		//delete(RunList, id)
+		// delete(RunList, id)
 		RunList.Delete(id)
 		return nil
 	}
@@ -271,7 +272,7 @@ func StopServer(id int) error {
 func AddTask(t *file.Tunnel) error {
 	if t.Mode == "secret" || t.Mode == "p2p" {
 		logs.Info("secret task %s start ", t.Remark)
-		//RunList[t.Id] = nil
+		// RunList[t.Id] = nil
 		RunList.Store(t.Id, nil)
 		return nil
 	}
@@ -284,12 +285,12 @@ func AddTask(t *file.Tunnel) error {
 	}
 	if svr := NewMode(Bridge, t); svr != nil {
 		logs.Info("tunnel task %s start mode：%s port %d", t.Remark, t.Mode, t.Port)
-		//RunList[t.Id] = svr
+		// RunList[t.Id] = svr
 		RunList.Store(t.Id, svr)
 		go func() {
 			if err := svr.Start(); err != nil {
 				logs.Error("clientId %d taskId %d start error %v", t.Client.Id, t.Id, err)
-				//delete(RunList, t.Id)
+				// delete(RunList, t.Id)
 				RunList.Delete(t.Id)
 				return
 			}
@@ -320,7 +321,7 @@ func StartTask(id int) error {
 
 // DelTask delete task
 func DelTask(id int) error {
-	//if _, ok := RunList[id]; ok {
+	// if _, ok := RunList[id]; ok {
 	if _, ok := RunList.Load(id); ok {
 		if err := StopServer(id); err != nil {
 			return err
@@ -331,13 +332,13 @@ func DelTask(id int) error {
 
 // GetTunnel get task list by page num
 func GetTunnel(start, length int, typeVal string, clientId int, search string, sortField string, order string) ([]*file.Tunnel, int) {
-	allList := make([]*file.Tunnel, 0) //store all Tunnel
+	allList := make([]*file.Tunnel, 0) // store all Tunnel
 	list := make([]*file.Tunnel, 0)
 	originLength := length
 	var cnt int
-	keys := file.GetMapKeys(&file.GetDb().JsonDb.Tasks, false, "", "")
+	keys := file.GetMapKeys(file.GetDb().JsonDb.Tasks, false, "", "")
 
-	//get all Tunnel and sort
+	// get all Tunnel and sort
 	for _, key := range keys {
 		if value, ok := file.GetDb().JsonDb.Tasks.Load(key); ok {
 			v := value.(*file.Tunnel)
@@ -347,7 +348,7 @@ func GetTunnel(start, length int, typeVal string, clientId int, search string, s
 			allList = append(allList, v)
 		}
 	}
-	//sort by Id, Remark, TargetStr, Port, asc or desc
+	// sort by Id, Remark, TargetStr, Port, asc or desc
 	if sortField == "Id" {
 		if order == "asc" {
 			sort.SliceStable(allList, func(i, j int) bool { return allList[i].Id < allList[j].Id })
@@ -499,7 +500,7 @@ func GetTunnel(start, length int, typeVal string, clientId int, search string, s
 		}
 	}
 
-	//search
+	// search
 	for _, key := range allList {
 		if value, ok := file.GetDb().JsonDb.Tasks.Load(key.Id); ok {
 			v := value.(*file.Tunnel)
@@ -524,7 +525,7 @@ func GetTunnel(start, length int, typeVal string, clientId int, search string, s
 					}
 					list = append(list, v)
 				} else if length--; length >= 0 {
-					//if _, ok := RunList[v.Id]; ok {
+					// if _, ok := RunList[v.Id]; ok {
 					if _, ok := RunList.Load(v.Id); ok {
 						v.RunStatus = true
 					} else {
@@ -541,7 +542,7 @@ func GetTunnel(start, length int, typeVal string, clientId int, search string, s
 // GetHostList get client list
 func GetHostList(start, length, clientId int, search, sortField, order string) (list []*file.Host, cnt int) {
 	list, cnt = file.GetDb().GetHost(start, length, clientId, search)
-	//sort by Id, Remark..., asc or desc
+	// sort by Id, Remark..., asc or desc
 	if sortField == "Id" {
 		if order == "asc" {
 			sort.SliceStable(list, func(i, j int) bool { return list[i].Id < list[j].Id })
@@ -722,7 +723,7 @@ func GetHostList(start, length, clientId int, search, sortField, order string) (
 // GetClientList get client list
 func GetClientList(start, length int, search, sortField, order string, clientId int) (list []*file.Client, cnt int) {
 	list, cnt = file.GetDb().GetClientList(start, length, search, sortField, order, clientId)
-	//sort by Id, Remark, Port..., asc or desc
+	// sort by Id, Remark, Port..., asc or desc
 	if sortField == "Id" {
 		if order == "asc" {
 			sort.SliceStable(list, func(i, j int) bool { return list[i].Id < list[j].Id })
@@ -842,7 +843,7 @@ func GetClientList(start, length int, search, sortField, order string, clientId 
 }
 
 func dealClientData() {
-	//logs.Info("dealClientData.........")
+	// logs.Info("dealClientData.........")
 	file.GetDb().JsonDb.Clients.Range(func(key, value interface{}) bool {
 		v := value.(*file.Client)
 		if vv, ok := Bridge.Client.Load(v.Id); ok {
@@ -1098,11 +1099,12 @@ func GetDashboardData(force bool) map[string]interface{} {
 	data := make(map[string]interface{})
 	data["version"] = version.VERSION
 	data["minVersion"] = GetMinVersion()
-	data["hostCount"] = common.GetSyncMapLen(&file.GetDb().JsonDb.Hosts)
-	data["clientCount"] = common.GetSyncMapLen(&file.GetDb().JsonDb.Clients)
+	data["hostCount"] = file.GetDb().JsonDb.Hosts.Len()
+	clientCount := file.GetDb().JsonDb.Clients.Len()
 	if beego.AppConfig.String("public_vkey") != "" { // remove public vkey
-		data["clientCount"] = data["clientCount"].(int) - 1
+		clientCount = clientCount - 1
 	}
+	data["clientCount"] = clientCount
 
 	dealClientData()
 

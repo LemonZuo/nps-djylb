@@ -24,23 +24,25 @@ func NewJsonDb(runPath string) *JsonDb {
 		HostFilePath:   filepath.Join(runPath, "conf", "hosts.json"),
 		ClientFilePath: filepath.Join(runPath, "conf", "clients.json"),
 		GlobalFilePath: filepath.Join(runPath, "conf", "global.json"),
+		Tasks:          NewOrderedSyncMap(),
+		Hosts:          NewOrderedSyncMap(),
+		Clients:        NewOrderedSyncMap(),
 	}
 }
 
 type JsonDb struct {
-	Tasks            sync.Map
-	Hosts            sync.Map
-	HostsTmp         sync.Map
-	Clients          sync.Map
+	Tasks            *OrderedSyncMap
+	Hosts            *OrderedSyncMap
+	Clients          *OrderedSyncMap
 	Global           *Glob
 	RunPath          string
-	ClientIncreaseId int32  //client increased id
-	TaskIncreaseId   int32  //task increased id
-	HostIncreaseId   int32  //host increased id
-	TaskFilePath     string //task file path
-	HostFilePath     string //host file path
-	ClientFilePath   string //client file path
-	GlobalFilePath   string //global file path
+	ClientIncreaseId int32  // client increased id
+	TaskIncreaseId   int32  // task increased id
+	HostIncreaseId   int32  // host increased id
+	TaskFilePath     string // task file path
+	HostFilePath     string // host file path
+	ClientFilePath   string // client file path
+	GlobalFilePath   string // global file path
 }
 
 func (s *JsonDb) LoadTaskFromJsonFile() {
@@ -142,7 +144,7 @@ var hostLock sync.Mutex
 
 func (s *JsonDb) StoreHostToJsonFile() {
 	hostLock.Lock()
-	storeSyncMapToFile(&s.Hosts, s.HostFilePath)
+	storeOrderedMapToFile(s.Hosts, s.HostFilePath)
 	hostLock.Unlock()
 }
 
@@ -150,7 +152,7 @@ var taskLock sync.Mutex
 
 func (s *JsonDb) StoreTasksToJsonFile() {
 	taskLock.Lock()
-	storeSyncMapToFile(&s.Tasks, s.TaskFilePath)
+	storeOrderedMapToFile(s.Tasks, s.TaskFilePath)
 	taskLock.Unlock()
 }
 
@@ -158,7 +160,7 @@ var clientLock sync.Mutex
 
 func (s *JsonDb) StoreClientsToJsonFile() {
 	clientLock.Lock()
-	storeSyncMapToFile(&s.Clients, s.ClientFilePath)
+	storeOrderedMapToFile(s.Clients, s.ClientFilePath)
 	clientLock.Unlock()
 }
 
@@ -325,7 +327,8 @@ func createEmptyFile(filePath string) error {
 	return nil
 }
 
-func storeSyncMapToFile(m *sync.Map, filePath string) {
+// storeOrderedMapToFile 存储OrderedSyncMap到文件（已经是有序的）
+func storeOrderedMapToFile(m *OrderedSyncMap, filePath string) {
 	tmpFilePath := filePath + ".tmp"
 	file, err := os.Create(tmpFilePath)
 	if err != nil {
@@ -340,6 +343,10 @@ func storeSyncMapToFile(m *sync.Map, filePath string) {
 	first := true
 	m.Range(func(key, value interface{}) bool {
 		switch v := value.(type) {
+		case *Client:
+			if v.NoStore {
+				return true
+			}
 		case *Tunnel:
 			if v.NoStore {
 				return true
@@ -348,13 +355,10 @@ func storeSyncMapToFile(m *sync.Map, filePath string) {
 			if v.NoStore {
 				return true
 			}
-		case *Client:
-			if v.NoStore {
-				return true
-			}
 		}
 
-		data, err := json.Marshal(value)
+		// 使用MarshalIndent生成格式化的JSON
+		data, err := json.MarshalIndent(value, "", "  ")
 		if err != nil {
 			panic(err)
 		}
@@ -403,9 +407,25 @@ func storeGlobalToFile(m *Glob, filePath string) {
 		panic(err)
 	}
 
+	// 如果m为nil，创建一个空的Glob对象
+	if m == nil {
+		m = &Glob{
+			BlackIpList: []string{},
+		}
+	}
+
 	var b []byte
-	b, err = json.Marshal(m)
+	// 使用MarshalIndent生成格式化的JSON
+	b, err = json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		panic(err)
+	}
 	_, err = file.Write(b)
+	if err != nil {
+		panic(err)
+	}
+	// 添加换行符
+	_, err = file.WriteString("\n")
 	if err != nil {
 		panic(err)
 	}

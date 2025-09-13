@@ -38,15 +38,28 @@ func GetDb() *DbUtils {
 	return Db
 }
 
-func GetMapKeys(m *sync.Map, isSort bool, sortKey, order string) (keys []int) {
-	if (sortKey == "InletFlow" || sortKey == "ExportFlow") && isSort {
-		return sortClientByKey(m, sortKey, order)
+func GetMapKeys(m interface{}, isSort bool, sortKey, order string) (keys []int) {
+	// 处理OrderedSyncMap的情况
+	if orderedMap, ok := m.(*OrderedSyncMap); ok {
+		if (sortKey == "InletFlow" || sortKey == "ExportFlow") && isSort {
+			// 需要按流量排序
+			return sortClientByKey(orderedMap, sortKey, order)
+		}
+		// 直接返回有序的keys
+		return orderedMap.Keys()
 	}
-	m.Range(func(key, value interface{}) bool {
-		keys = append(keys, key.(int))
-		return true
-	})
-	sort.Ints(keys)
+
+	// 处理sync.Map的情况
+	if syncMap, ok := m.(*sync.Map); ok {
+		if (sortKey == "InletFlow" || sortKey == "ExportFlow") && isSort {
+			return sortClientByKey(syncMap, sortKey, order)
+		}
+		syncMap.Range(func(key, value interface{}) bool {
+			keys = append(keys, key.(int))
+			return true
+		})
+		sort.Ints(keys)
+	}
 	return
 }
 
@@ -54,7 +67,7 @@ func (s *DbUtils) GetClientList(start, length int, search, sort, order string, c
 	list := make([]*Client, 0)
 	var cnt int
 	originLength := length
-	keys := GetMapKeys(&s.JsonDb.Clients, true, sort, order)
+	keys := GetMapKeys(s.JsonDb.Clients, true, sort, order)
 	for _, key := range keys {
 		if value, ok := s.JsonDb.Clients.Load(key); ok {
 			v := value.(*Client)
@@ -338,7 +351,7 @@ func (s *DbUtils) GetHost(start, length int, id int, search string) ([]*Host, in
 	list := make([]*Host, 0)
 	var cnt int
 	originLength := length
-	keys := GetMapKeys(&s.JsonDb.Hosts, false, "", "")
+	keys := GetMapKeys(s.JsonDb.Hosts, false, "", "")
 	for _, key := range keys {
 		if value, ok := s.JsonDb.Hosts.Load(key); ok {
 			v := value.(*Host)

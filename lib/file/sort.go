@@ -30,12 +30,23 @@ func (p PairList) Less(i, j int) bool {
 }
 
 // A function to turn a map into a PairList, then sort and return it.
-func sortClientByKey(m *sync.Map, sortKey, order string) (res []int) {
+func sortClientByKey(m interface{}, sortKey, order string) (res []int) {
 	p := make(PairList, 0)
-	m.Range(func(key, value interface{}) bool {
-		p = append(p, &Pair{sortKey, value.(*Client).Id, order, value.(*Client).Flow})
-		return true
-	})
+
+	// 处理不同类型的map
+	switch v := m.(type) {
+	case *sync.Map:
+		v.Range(func(key, value interface{}) bool {
+			p = append(p, &Pair{sortKey, value.(*Client).Id, order, value.(*Client).Flow})
+			return true
+		})
+	case *OrderedSyncMap:
+		v.Range(func(key, value interface{}) bool {
+			p = append(p, &Pair{sortKey, value.(*Client).Id, order, value.(*Client).Flow})
+			return true
+		})
+	}
+
 	sort.Sort(p)
 	for _, v := range p {
 		res = append(res, v.cId)
