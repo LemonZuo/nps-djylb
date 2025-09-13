@@ -589,8 +589,29 @@ func in(target string, strArray []string) bool {
 	return false
 }
 
-// IsIpInBlacklist 检查 IP 是否在黑名单中（支持单个 IP 和 CIDR）
+// IsIpInBlacklist 检查 IP 是否在黑名单中（支持 IPv4、IPv6、IPv4 CIDR、IPv6 CIDR）
 func IsIpInBlacklist(ipStr string, blacklist []string) bool {
+	// 清理输入的 IP 字符串
+	ipStr = strings.TrimSpace(ipStr)
+	if ipStr == "" {
+		return false
+	}
+
+	// 处理可能带端口的地址格式 "[::1]:8080" 或 "192.168.1.1:8080"
+	if strings.HasPrefix(ipStr, "[") {
+		// IPv6 格式 "[::1]:8080"
+		if idx := strings.IndexByte(ipStr, ']'); idx != -1 {
+			ipStr = ipStr[1:idx]
+		}
+	} else if idx := strings.LastIndexByte(ipStr, ':'); idx != -1 {
+		// 检查是否是 IPv6（包含多个冒号）还是 IPv4:port
+		if strings.Count(ipStr[:idx], ":") == 0 {
+			// IPv4:port 格式
+			ipStr = ipStr[:idx]
+		}
+		// 否则可能是纯 IPv6 地址，保持不变
+	}
+
 	// 解析目标 IP
 	targetIP := net.ParseIP(ipStr)
 	if targetIP == nil {
@@ -598,19 +619,21 @@ func IsIpInBlacklist(ipStr string, blacklist []string) bool {
 	}
 
 	for _, entry := range blacklist {
+		entry = strings.TrimSpace(entry)
 		if entry == "" {
 			continue
 		}
 
-		// 检查是否是 CIDR 格式
+		// 检查是否是 CIDR 格式（IPv4 或 IPv6）
 		if strings.Contains(entry, "/") {
 			_, cidrNet, err := net.ParseCIDR(entry)
-			if err == nil && cidrNet.Contains(targetIP) {
+			if err == nil && cidrNet != nil && cidrNet.Contains(targetIP) {
 				return true
 			}
 		} else {
 			// 单个 IP 地址比较
-			if entry == ipStr {
+			entryIP := net.ParseIP(entry)
+			if entryIP != nil && entryIP.Equal(targetIP) {
 				return true
 			}
 		}
