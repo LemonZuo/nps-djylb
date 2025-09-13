@@ -336,7 +336,7 @@ func storeOrderedMapToFile(m *OrderedSyncMap, filePath string) {
 	}
 
 	// 先收集所有需要存储的对象到切片中
-	var items []interface{}
+	items := make([]interface{}, 0) // 初始化为空切片而不是nil
 	m.Range(func(key, value interface{}) bool {
 		switch v := value.(type) {
 		case *Client:
