@@ -63,7 +63,18 @@
                     <div class="form-group" id="p">
                         <label class="control-label font-bold" langtag="word-basicpassword"></label>
                         <div class="col-sm-12">
-                            <input class="form-control" langtag="info-unrestricted" name="p" placeholder="" type="text">
+                            <div class="input-group">
+                                <input class="form-control" id="basic_password" langtag="info-unrestricted" name="p" placeholder="" type="text">
+                                <span class="input-group-btn">
+                                    <button type="button" class="btn btn-default password-refresh-btn" onclick="$('#basic_password').val(generateRandomPassword(32))" data-langtitle="word-generatenewpassword" title="Generate new password">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="23 4 23 10 17 10"></polyline>
+                                            <polyline points="1 20 1 14 7 14"></polyline>
+                                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                        </svg>
+                                    </button>
+                                </span>
+                            </div>
                             <span class="help-block m-b-none" langtag="info-onlyproxy"></span>
                         </div>
                     </div>
@@ -98,8 +109,8 @@
                         <label class="control-label font-bold" langtag="word-connectbyconfig"></label>
                         <div class="col-sm-12">
                             <select class="form-control selectpicker" name="config_conn_allow">
-                                <option langtag="word-yes" value="1"></option>
                                 <option langtag="word-no" value="0"></option>
+                                <option langtag="word-yes" value="1"></option>
                             </select>
                         </div>
                     </div>
@@ -144,3 +155,117 @@
         </div>
     </div>
 </div>
+<script>
+$(document).ready(function() {
+    // 页面加载时自动生成 Basic 认证密码
+    $('#basic_password').val(generateRandomPassword(32));
+    
+    // 处理按钮的国际化 title - 等待语言加载完成
+    setTimeout(function() {
+        $('[data-langtitle]').each(function() {
+            try {
+                var langKey = $(this).data('langtitle');
+                if (typeof languages !== 'undefined' && languages.content) {
+                    // 移除 'word-' 前缀并转换为小写
+                    var cleanKey = langKey.replace('word-', '').toLowerCase();
+                    var langText = languages.content[cleanKey] || languages.content[langKey.toLowerCase()];
+                    
+                    if (langText && langText[languages.language]) {
+                        $(this).attr('title', langText[languages.language]);
+                    } else if (langText && langText[languages.current]) {
+                        $(this).attr('title', langText[languages.current]);
+                    }
+                }
+            } catch(e) {
+                // 如果语言系统还未就绪，保留默认 title
+                console.log('Language system not ready yet');
+            }
+        });
+    }, 500); // 延迟 500ms 等待语言系统加载
+});
+</script>
+<style>
+/* 密码刷新按钮样式 - 与系统主题保持一致 */
+.password-refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    min-width: 40px;
+    height: 34px; /* 确保与输入框高度一致 */
+}
+
+/* 浅色主题 - 使用默认按钮样式 */
+.password-refresh-btn.btn-default {
+    background-color: #ffffff;
+    border-color: #e7eaec;
+    color: #676a6c;
+    transition: all 0.2s ease-in-out;
+}
+
+.password-refresh-btn.btn-default:hover,
+.password-refresh-btn.btn-default:focus {
+    background-color: #f3f3f4;
+    border-color: #d2d2d2;
+    color: #676a6c;
+}
+
+.password-refresh-btn.btn-default:active {
+    background-color: #ebebeb;
+    border-color: #d2d2d2;
+    color: #676a6c;
+    box-shadow: inset 0 3px 5px rgba(0,0,0,.125);
+}
+
+.password-refresh-btn svg {
+    transition: opacity 0.2s ease;
+    stroke: #1ab394; /* 使用主题绿色作为图标颜色 */
+}
+
+.password-refresh-btn:hover svg {
+    opacity: 0.8;
+    stroke: #18a689;
+}
+
+/* 暗色主题适配 - 使用与输入框一致的样式 */
+html[theme="dark-mode"] .password-refresh-btn.btn-default {
+    background-color: #3a3a3a !important;
+    border-color: #484848 !important;
+    color: #a7b1c2 !important;
+}
+
+html[theme="dark-mode"] .password-refresh-btn.btn-default:hover,
+html[theme="dark-mode"] .password-refresh-btn.btn-default:focus {
+    background-color: #434343 !important;
+    border-color: #525252 !important;
+    color: #a7b1c2 !important;
+}
+
+html[theme="dark-mode"] .password-refresh-btn.btn-default:active {
+    background-color: #303030 !important;
+    border-color: #404040 !important;
+    color: #a7b1c2 !important;
+    box-shadow: inset 0 3px 5px rgba(0,0,0,.25) !important;
+}
+
+html[theme="dark-mode"] .password-refresh-btn svg {
+    stroke: #1ab394;
+}
+
+html[theme="dark-mode"] .password-refresh-btn:hover svg {
+    stroke: #1dc9a6;
+}
+
+/* 确保输入框组正确对齐 */
+.input-group .form-control {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    height: 34px;
+}
+
+.input-group-btn:last-child > .btn {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    margin-left: -1px; /* 消除按钮和输入框之间的间隙 */
+}
+</style>

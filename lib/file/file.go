@@ -358,7 +358,7 @@ func storeOrderedMapToFile(m *OrderedSyncMap, filePath string) {
 		}
 
 		// 使用MarshalIndent生成格式化的JSON
-		data, err := json.MarshalIndent(value, "", "  ")
+		data, err := json.MarshalIndent(value, "", "    ")
 		if err != nil {
 			panic(err)
 		}
@@ -370,7 +370,7 @@ func storeOrderedMapToFile(m *OrderedSyncMap, filePath string) {
 		}
 		first = false
 
-		if _, err = writer.WriteString("  "); err != nil {
+		if _, err = writer.WriteString("    "); err != nil {
 			panic(err)
 		}
 		if _, err = writer.Write(data); err != nil {
@@ -416,7 +416,7 @@ func storeGlobalToFile(m *Glob, filePath string) {
 
 	var b []byte
 	// 使用MarshalIndent生成格式化的JSON
-	b, err = json.MarshalIndent(m, "", "  ")
+	b, err = json.MarshalIndent(m, "", "    ")
 	if err != nil {
 		panic(err)
 	}

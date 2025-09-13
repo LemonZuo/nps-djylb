@@ -164,6 +164,10 @@
 		<zh-CN>Basic 认证密码</zh-CN>
 		<en-US>Basic Authentication Password</en-US>
 	</lang>
+	<lang id="word-generatenewpassword">
+		<zh-CN>生成新密码</zh-CN>
+		<en-US>Generate new password</en-US>
+	</lang>
 	<lang id="word-basicusername">
 		<zh-CN>Basic 认证用户名</zh-CN>
 		<en-US>Basic Authentication Username</en-US>

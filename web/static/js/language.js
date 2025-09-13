@@ -383,3 +383,14 @@ function getBridgeMode(data) {
     }
     return escapedSecond + ' → ' + escapedFirst;
 }
+
+// 生成随机密码
+function generateRandomPassword(length) {
+    length = length || 32;
+    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+        password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
+}
