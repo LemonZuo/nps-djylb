@@ -370,11 +370,18 @@ func storeOrderedMapToFile(m *OrderedSyncMap, filePath string) {
 		}
 		first = false
 
-		if _, err = writer.WriteString("    "); err != nil {
-			panic(err)
-		}
-		if _, err = writer.Write(data); err != nil {
-			panic(err)
+		// 将生成的JSON数据按行分割，为每行添加4个空格的前缀
+		lines := strings.Split(string(data), "\n")
+		for i, line := range lines {
+			if i > 0 {
+				if _, err = writer.WriteString("\n"); err != nil {
+					panic(err)
+				}
+			}
+			// 为每行添加4个空格的前缀
+			if _, err = writer.WriteString("    " + line); err != nil {
+				panic(err)
+			}
 		}
 
 		return true
