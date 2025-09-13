@@ -1,8 +1,6 @@
 package file
 
 import (
-	"bufio"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -15,6 +13,8 @@ import (
 	"github.com/djylb/nps/lib/crypt"
 	"github.com/djylb/nps/lib/logs"
 	"github.com/djylb/nps/lib/rate"
+	"github.com/goccy/go-json"
+	"github.com/tidwall/pretty"
 )
 
 func NewJsonDb(runPath string) *JsonDb {
@@ -334,13 +334,9 @@ func storeOrderedMapToFile(m *OrderedSyncMap, filePath string) {
 	if err != nil {
 		panic(err)
 	}
-	writer := bufio.NewWriter(file)
 
-	if _, err = writer.WriteString("[\n"); err != nil {
-		panic(err)
-	}
-
-	first := true
+	// 先收集所有需要存储的对象到切片中
+	var items []interface{}
 	m.Range(func(key, value interface{}) bool {
 		switch v := value.(type) {
 		case *Client:
@@ -356,44 +352,35 @@ func storeOrderedMapToFile(m *OrderedSyncMap, filePath string) {
 				return true
 			}
 		}
-
-		// 使用MarshalIndent生成格式化的JSON
-		data, err := json.MarshalIndent(value, "", "    ")
-		if err != nil {
-			panic(err)
-		}
-
-		if !first {
-			if _, err = writer.WriteString(",\n"); err != nil {
-				panic(err)
-			}
-		}
-		first = false
-
-		// 将生成的JSON数据按行分割，为每行添加4个空格的前缀
-		lines := strings.Split(string(data), "\n")
-		for i, line := range lines {
-			if i > 0 {
-				if _, err = writer.WriteString("\n"); err != nil {
-					panic(err)
-				}
-			}
-			// 为每行添加4个空格的前缀
-			if _, err = writer.WriteString("    " + line); err != nil {
-				panic(err)
-			}
-		}
-
+		items = append(items, value)
 		return true
 	})
 
-	if _, err = writer.WriteString("\n]\n"); err != nil {
+	// 将整个切片序列化为JSON
+	data, err := json.Marshal(items)
+	if err != nil {
 		panic(err)
 	}
 
-	if err = writer.Flush(); err != nil {
+	// 使用 tidwall/pretty 一次性格式化整个数组
+	opts := &pretty.Options{
+		Width:    1,      // 设置为1，强制所有数组都换行
+		Prefix:   "",     // 不需要前缀，因为是整个文件
+		Indent:   "    ", // 缩进（4个空格）
+		SortKeys: false,  // 保持原有的键顺序
+	}
+	formatted := pretty.PrettyOptions(data, opts)
+
+	// 写入格式化后的JSON
+	if _, err = file.Write(formatted); err != nil {
 		panic(err)
 	}
+
+	// 添加换行符
+	if _, err = file.WriteString("\n"); err != nil {
+		panic(err)
+	}
+
 	if err = file.Sync(); err != nil {
 		panic(err)
 	}
@@ -421,13 +408,23 @@ func storeGlobalToFile(m *Glob, filePath string) {
 		}
 	}
 
-	var b []byte
-	// 使用MarshalIndent生成格式化的JSON
-	b, err = json.MarshalIndent(m, "", "    ")
+	// 序列化为JSON
+	data, err := json.Marshal(m)
 	if err != nil {
 		panic(err)
 	}
-	_, err = file.Write(b)
+
+	// 使用 tidwall/pretty 格式化，直接支持前缀
+	opts := &pretty.Options{
+		Width:    1,      // 设置为1，强制所有数组都换行
+		Prefix:   "",     // global.json 不需要前缀
+		Indent:   "    ", // 缩进（4个空格）
+		SortKeys: false,  // 保持原有的键顺序
+	}
+	formatted := pretty.PrettyOptions(data, opts)
+
+	// 写入格式化后的JSON
+	_, err = file.Write(formatted)
 	if err != nil {
 		panic(err)
 	}
