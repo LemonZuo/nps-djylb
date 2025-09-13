@@ -1,6 +1,7 @@
 package file
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -13,7 +14,6 @@ import (
 	"github.com/djylb/nps/lib/crypt"
 	"github.com/djylb/nps/lib/logs"
 	"github.com/djylb/nps/lib/rate"
-	"github.com/goccy/go-json"
 	"github.com/tidwall/pretty"
 )
 
