@@ -129,7 +129,7 @@ func IsGlobalBlackIp(ipPort string) bool {
 	global := file.GetDb().GetGlobal()
 	if global != nil {
 		ip := common.GetIpByAddr(ipPort)
-		if in(ip, global.BlackIpList) {
+		if common.IsIpInBlacklist(ip, global.BlackIpList) {
 			logs.Error("IP address [%s] is in the global blacklist", ip)
 			return true
 		}

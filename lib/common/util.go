@@ -589,9 +589,38 @@ func in(target string, strArray []string) bool {
 	return false
 }
 
+// IsIpInBlacklist 检查 IP 是否在黑名单中（支持单个 IP 和 CIDR）
+func IsIpInBlacklist(ipStr string, blacklist []string) bool {
+	// 解析目标 IP
+	targetIP := net.ParseIP(ipStr)
+	if targetIP == nil {
+		return false
+	}
+
+	for _, entry := range blacklist {
+		if entry == "" {
+			continue
+		}
+
+		// 检查是否是 CIDR 格式
+		if strings.Contains(entry, "/") {
+			_, cidrNet, err := net.ParseCIDR(entry)
+			if err == nil && cidrNet.Contains(targetIP) {
+				return true
+			}
+		} else {
+			// 单个 IP 地址比较
+			if entry == ipStr {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func IsBlackIp(ipPort, vkey string, blackIpList []string) bool {
 	ip := GetIpByAddr(ipPort)
-	if in(ip, blackIpList) {
+	if IsIpInBlacklist(ip, blackIpList) {
 		logs.Warn("IP [%s] is in the blacklist for [%s]", ip, vkey)
 		return true
 	}
