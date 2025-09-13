@@ -371,13 +371,8 @@ func storeOrderedMapToFile(m *OrderedSyncMap, filePath string) {
 	}
 	formatted := pretty.PrettyOptions(data, opts)
 
-	// 写入格式化后的JSON
+	// 写入格式化后的JSON（pretty已经包含换行符）
 	if _, err = file.Write(formatted); err != nil {
-		panic(err)
-	}
-
-	// 添加换行符
-	if _, err = file.WriteString("\n"); err != nil {
 		panic(err)
 	}
 
@@ -423,13 +418,8 @@ func storeGlobalToFile(m *Glob, filePath string) {
 	}
 	formatted := pretty.PrettyOptions(data, opts)
 
-	// 写入格式化后的JSON
+	// 写入格式化后的JSON（pretty已经包含换行符）
 	_, err = file.Write(formatted)
-	if err != nil {
-		panic(err)
-	}
-	// 添加换行符
-	_, err = file.WriteString("\n")
 	if err != nil {
 		panic(err)
 	}
