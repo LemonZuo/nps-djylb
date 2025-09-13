@@ -141,7 +141,7 @@ build_image() {
     if docker buildx build \
         --cache-from=type=registry,ref=${repo_name}:cache \
         --cache-to=type=registry,ref=${repo_name}:cache,mode=max \
-        --platform linux/amd64,linux/arm,linux/arm64 \
+        --platform linux/amd64,linux/arm,linux/arm64,linux/386,linux/ppc64le,linux/s390x \
         --build-arg JOBS=4 \
         --build-arg MAKEFLAGS="-j4" \
         --build-arg BUILDKIT_INLINE_CACHE=1 \
