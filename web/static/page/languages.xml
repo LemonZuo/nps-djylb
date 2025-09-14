@@ -1030,12 +1030,12 @@
 		<en-US>Global IP Black List</en-US>
 	</lang>
 	<lang id="info-suchasblackiplist">
-		<zh-CN>例如&#10;10.1.50.203&#10;10.1.50.202</zh-CN>
-		<en-US>Such as&#10;10.1.50.203&#10;10.1.50.202</en-US>
+		<zh-CN>例如&#10;10.1.50.203&#10;192.168.1.0/24&#10;2001:db8::1&#10;2001:db8::/32&#10;172.16.0.0/12</zh-CN>
+		<en-US>Such as&#10;10.1.50.203&#10;192.168.1.0/24&#10;2001:db8::1&#10;2001:db8::/32&#10;172.16.0.0/12</en-US>
 	</lang>
 	<lang id="info-descblackiplist">
-		<zh-CN>一行一个，IPV4,不支持范围匹配</zh-CN>
-		<en-US>IPV4</en-US>
+		<zh-CN>一行一个，支持IPv4、IPv6、CIDR格式</zh-CN>
+		<en-US>One per line, supports IPv4, IPv6, CIDR formats</en-US>
 	</lang>
 	<lang id="word-blackip">
 		<zh-CN>IP黑名单</zh-CN>
