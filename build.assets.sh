@@ -3,6 +3,9 @@ set -e
 
 export GOPROXY=direct
 
+# Create build directory
+mkdir -p build
+
 CURRENT_GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
 go mod edit -go=$CURRENT_GO_VERSION
 go mod tidy
@@ -117,7 +120,7 @@ package_binary() {
   fi
 
   local tarname="${os}_${arch_tag}_${suffix}.tar.gz"
-  tar -czvf "$tarname" $bin $tar_files
+  tar -czvf "build/$tarname" $bin $tar_files
   rm -f "$bin"
 }
 
@@ -146,10 +149,12 @@ build_sdk() {
       go build -tags sdk -trimpath -buildmode=c-shared -ldflags "$COMMON_LDFLAGS" -o "$folder/npc_sdk$ext" cmd/npc/sdk.go
     cp npc_sdk.h "$folder"/ 2>/dev/null || true
   done
-  tar -czvf npc_sdk.tar.gz sdk_*
+  tar -czvf build/npc_sdk.tar.gz sdk_*
   rm -rf sdk_*
 }
 
 build_sdk
 build_all_targets npc "client" TARGETS[@] "$NPC_TAR_FILES"
 build_all_targets nps "server" TARGETS[@] "$NPS_TAR_FILES"
+
+echo "All build artifacts are in the build/ directory"

@@ -8,8 +8,9 @@ export GOPROXY := https://goproxy.io
 
 # Build a beta version of goreleaser
 build:
-	go build cmd/nps/nps.go
-	go build cmd/npc/npc.go
+	@mkdir -p build
+	go build -o build/nps cmd/nps/nps.go
+	go build -o build/npc cmd/npc/npc.go
 .PHONY: build
 
 # Install all the build and lint dependencies
@@ -69,7 +70,7 @@ todo:
 .PHONY: todo
 
 clean:
-	rm npc nps
+	@rm -rf build/
 .PHONY: clean
 
 .DEFAULT_GOAL := build

@@ -9,7 +9,7 @@ NDK_VERSION="${NDK_VERSION:-r28c}"
 NDK_CACHE_DIR="${NDK_CACHE_DIR:-$HOME}"
 TAGS="${TAGS:-netgo,osusergo}"
 GCFLAGS="${GCFLAGS:-}"
-OUT_ROOT="."
+OUT_ROOT="./build"
 # ===================
 
 host_tag() { echo "$(uname -s | tr '[:upper:]' '[:lower:]')-x86_64"; }
@@ -120,10 +120,10 @@ ensure_ndk() {
 }
 
 build_one() {
-  local outdir="$1" goarch="$2" cc="$3" extra_env="${4:-}"
-  mkdir -p "$outdir"
-  local bin="${outdir}/lib${APP_NAME}.so"
-  echo "==> Building ${outdir} (${goarch}) -> ${bin}"
+  local arch="$1" goarch="$2" cc="$3" extra_env="${4:-}"
+  mkdir -p "$OUT_ROOT"
+  local bin="${OUT_ROOT}/lib${APP_NAME}_${arch}.so"
+  echo "==> Building ${arch} (${goarch}) -> ${bin}"
 
   local LZ_COMMON=""
   if "${LLVM_BIN}/ld.lld" --help 2>/dev/null | grep -q 'common-page-size'; then
@@ -146,7 +146,7 @@ build_one() {
   "$STRIP_BIN" -s "$bin" || true
 
   if command -v readelf >/dev/null 2>&1; then
-    echo "-- readelf (${outdir}) --"
+    echo "-- readelf (${arch}) --"
     readelf -lW "$bin" | awk '/LOAD/ {print $0}' || true
   fi
 }
@@ -160,15 +160,15 @@ main() {
   build_one "x86"          "386"   "$I686_CLANG"
 
   echo "OK. Outputs:"
-  find "$OUT_ROOT" -maxdepth 2 -type f -name 'lib'"$APP_NAME"'.so' -printf '%P\t%k KB\n' | sort
+  find "$OUT_ROOT" -maxdepth 1 -type f -name 'lib'"$APP_NAME"'*.so' -printf '%P\t%k KB\n' | sort
 
-  tar -czf android_libs_client.tar.gz \
-    arm64-v8a/lib${APP_NAME}.so \
-    x86_64/lib${APP_NAME}.so \
-    armeabi-v7a/lib${APP_NAME}.so \
-    x86/lib${APP_NAME}.so
+  cd "$OUT_ROOT" && tar -czf android_libs_client.tar.gz \
+    lib${APP_NAME}_arm64-v8a.so \
+    lib${APP_NAME}_x86_64.so \
+    lib${APP_NAME}_armeabi-v7a.so \
+    lib${APP_NAME}_x86.so && cd ..
 
-  echo "Packed: android_libs_client.tar.gz"
+  echo "Packed: build/android_libs_client.tar.gz"
 }
 
 main "$@"

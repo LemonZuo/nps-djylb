@@ -6,3 +6,4 @@ npc
 *.json
 *.tmp
 *.log
+build/
