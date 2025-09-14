@@ -177,6 +177,81 @@
                     return '<span onclick="oCopy(this)">' + value + '</span>'
                 }
             },
+            {
+                field: 'AccessAddress', //域值
+                title: '<span langtag="word-accessaddress"></span>', //标题
+                halign: 'center',
+                visible: true, //false表示不显示
+                sortable: false, //启用排序
+                formatter: function (value, row, index) {
+                    // 根据不同的隧道类型生成访问地址
+                    var address = "";
+                    var protocol = "";
+                    
+                    if (row.Mode == "tcp" || row.Mode == "udp") {
+                        // TCP/UDP隧道
+                        address = "{{.ip}}:" + row.Port;
+                        // TCP隧道根据IsHttp判断协议
+                        if (row.Mode == "tcp" && row.IsHttp) {
+                            protocol = "http://";
+                            return '<a href="' + protocol + address + '" target="_blank">' + address + '</a>';
+                        } else if (row.Mode == "tcp") {
+                            // 非HTTP的TCP隧道不生成链接
+                            return '<span onclick="oCopy(this)">' + address + '</span>';
+                        } else {
+                            // UDP隧道不生成链接
+                            return '<span onclick="oCopy(this)">' + address + '</span>';
+                        }
+                    } else if (row.Mode == "httpProxy" || row.Mode == "socks5" || row.Mode == "mixProxy") {
+                        // 代理类型
+                        var result = [];
+                        var auth = "";
+                        
+                        // 如果有用户名和密码，添加认证信息（仅用于复制）
+                        if (row.Client && row.Client.Cnf && row.Client.Cnf.U && row.Client.Cnf.P) {
+                            auth = row.Client.Cnf.U + ":" + row.Client.Cnf.P + "@";
+                        }
+                        
+                        if (row.Mode == "httpProxy") {
+                            // 纯HTTP代理
+                            var displayAddress = "http://{{.ip}}:" + row.Port;
+                            var copyAddress = "http://" + auth + "{{.ip}}:" + row.Port;
+                            result.push('<span onclick="copyText(\'' + copyAddress + '\')">' + displayAddress + '</span>');
+                        } else if (row.Mode == "socks5") {
+                            // 纯SOCKS5代理
+                            var displayAddress = "socks5://{{.ip}}:" + row.Port;
+                            var copyAddress = "socks5://" + auth + "{{.ip}}:" + row.Port;
+                            result.push('<span onclick="copyText(\'' + copyAddress + '\')">' + displayAddress + '</span>');
+                        } else if (row.Mode == "mixProxy") {
+                            // 混合代理，根据实际启用状态显示
+                            if (row.HttpProxy) {
+                                var displayAddress = "http://{{.ip}}:" + row.Port;
+                                var copyAddress = "http://" + auth + "{{.ip}}:" + row.Port;
+                                result.push('<span onclick="copyText(\'' + copyAddress + '\')">' + displayAddress + '</span>');
+                            }
+                            if (row.Socks5Proxy) {
+                                var displayAddress = "socks5://{{.ip}}:" + row.Port;
+                                var copyAddress = "socks5://" + auth + "{{.ip}}:" + row.Port;
+                                result.push('<span onclick="copyText(\'' + copyAddress + '\')">' + displayAddress + '</span>');
+                            }
+                            if (!row.HttpProxy && !row.Socks5Proxy) {
+                                return '-';
+                            }
+                        }
+                        return result.join('<br>');
+                    } else if (row.Mode == "file") {
+                        // 文件服务
+                        address = "{{.ip}}:" + row.Port;
+                        protocol = row.IsHttp ? "http://" : "https://";
+                        return '<a href="' + protocol + address + '" target="_blank">' + address + '</a>';
+                    } else if (row.Mode == "secret" || row.Mode == "p2p") {
+                        // 私密代理和P2P不显示访问地址
+                        return '-';
+                    } else {
+                        return '-';
+                    }
+                }
+            },
             {{ if or (not .type) (eq .type "tcp") (eq .type "udp") (eq .type "secret") (eq .type "p2p") }}
             {
                 field: 'Target.TargetStr', //域值
