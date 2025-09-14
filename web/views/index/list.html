@@ -35,6 +35,19 @@
 </div>
 
 <script>
+    // 辅助函数获取国际化文本
+    function getTooltipText(key) {
+        var lang = $('#languagemenu').attr('lang') || 'zh-CN';
+        if (key === 'word-copyhttpproxy') {
+            return lang === 'en-US' ? 'Click to copy HTTP proxy address' : '点击复制HTTP代理地址';
+        } else if (key === 'word-copysocks5proxy') {
+            return lang === 'en-US' ? 'Click to copy SOCKS5 proxy address' : '点击复制SOCKS5代理地址';
+        } else if (key === 'word-copyaddress') {
+            return lang === 'en-US' ? 'Click to copy address' : '点击复制地址';
+        }
+        return '';
+    }
+    
     name = '{{.name}}:'.replace(/\s*/g, "")
     $('#langtag').attr('langtag', 'page-list' + name.replace(/:.*/, "")).next().text(name.split(":")[1])
 
@@ -197,10 +210,10 @@
                             return '<a href="' + protocol + address + '" target="_blank" style="white-space: nowrap;">' + address + '</a>';
                         } else if (row.Mode == "tcp") {
                             // 非HTTP的TCP隧道不生成链接
-                            return '<span onclick="oCopy(this)" style="white-space: nowrap;">' + address + '</span>';
+                            return '<span onclick="oCopy(this)" style="cursor: pointer; white-space: nowrap;" title="' + getTooltipText('word-copyaddress') + '">' + address + '</span>';
                         } else {
                             // UDP隧道不生成链接
-                            return '<span onclick="oCopy(this)" style="white-space: nowrap;">' + address + '</span>';
+                            return '<span onclick="oCopy(this)" style="cursor: pointer; white-space: nowrap;" title="' + getTooltipText('word-copyaddress') + '">' + address + '</span>';
                         }
                     } else if (row.Mode == "httpProxy" || row.Mode == "socks5" || row.Mode == "mixProxy") {
                         // 代理类型
@@ -216,12 +229,12 @@
                             // 纯HTTP代理
                             var displayAddress = "http://{{.ip}}:" + row.Port;
                             var copyAddress = "http://" + auth + "{{.ip}}:" + row.Port;
-                            result.push('<span onclick="copyText(\'' + copyAddress + '\')" style="white-space: nowrap;">' + displayAddress + '</span>');
+                            result.push('<div onclick="copyText(\'' + copyAddress + '\')" style="cursor: pointer; white-space: nowrap;" title="' + getTooltipText('word-copyhttpproxy') + '">' + displayAddress + '</div>');
                         } else if (row.Mode == "socks5") {
                             // 纯SOCKS5代理
                             var displayAddress = "socks5://{{.ip}}:" + row.Port;
                             var copyAddress = "socks5://" + auth + "{{.ip}}:" + row.Port;
-                            result.push('<span onclick="copyText(\'' + copyAddress + '\')" style="white-space: nowrap;">' + displayAddress + '</span>');
+                            result.push('<div onclick="copyText(\'' + copyAddress + '\')" style="cursor: pointer; white-space: nowrap;" title="' + getTooltipText('word-copysocks5proxy') + '">' + displayAddress + '</div>');
                         } else if (row.Mode == "mixProxy") {
                             // 混合代理，根据实际启用状态显示
                             if (row.HttpProxy && row.Socks5Proxy) {
@@ -233,17 +246,17 @@
                                 // 显示两个地址，点击复制两个地址（用换行分隔）
                                 var combinedCopy = httpCopy + '\n' + socksCopy;
                                 return '<div style="white-space: nowrap;">' +
-                                    '<div onclick="copyText(\'' + httpCopy + '\')" style="cursor: pointer; margin-bottom: 8px;" title="点击复制HTTP代理地址">' + httpDisplay + '</div>' +
-                                    '<div onclick="copyText(\'' + socksCopy + '\')" style="cursor: pointer;" title="点击复制SOCKS5代理地址">' + socksDisplay + '</div>' +
+                                    '<div onclick="copyText(\'' + httpCopy + '\')" style="cursor: pointer; margin-bottom: 8px;" title="' + getTooltipText('word-copyhttpproxy') + '">' + httpDisplay + '</div>' +
+                                    '<div onclick="copyText(\'' + socksCopy + '\')" style="cursor: pointer;" title="' + getTooltipText('word-copysocks5proxy') + '">' + socksDisplay + '</div>' +
                                     '</div>';
                             } else if (row.HttpProxy) {
                                 var displayAddress = "http://{{.ip}}:" + row.Port;
                                 var copyAddress = "http://" + auth + "{{.ip}}:" + row.Port;
-                                result.push('<span onclick="copyText(\'' + copyAddress + '\')" style="white-space: nowrap;" title="点击复制HTTP代理地址">' + displayAddress + '</span>');
+                                result.push('<div onclick="copyText(\'' + copyAddress + '\')" style="cursor: pointer; white-space: nowrap;" title="' + getTooltipText('word-copyhttpproxy') + '">' + displayAddress + '</div>');
                             } else if (row.Socks5Proxy) {
                                 var displayAddress = "socks5://{{.ip}}:" + row.Port;
                                 var copyAddress = "socks5://" + auth + "{{.ip}}:" + row.Port;
-                                result.push('<span onclick="copyText(\'' + copyAddress + '\')" style="white-space: nowrap;" title="点击复制SOCKS5代理地址">' + displayAddress + '</span>');
+                                result.push('<div onclick="copyText(\'' + copyAddress + '\')" style="cursor: pointer; white-space: nowrap;" title="' + getTooltipText('word-copysocks5proxy') + '">' + displayAddress + '</div>');
                             } else {
                                 return '-';
                             }

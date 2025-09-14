@@ -546,6 +546,18 @@
 		<zh-CN>访问地址</zh-CN>
 		<en-US>Access address</en-US>
 	</lang>
+	<lang id="word-copyhttpproxy">
+		<zh-CN>点击复制HTTP代理地址</zh-CN>
+		<en-US>Click to copy HTTP proxy address</en-US>
+	</lang>
+	<lang id="word-copysocks5proxy">
+		<zh-CN>点击复制SOCKS5代理地址</zh-CN>
+		<en-US>Click to copy SOCKS5 proxy address</en-US>
+	</lang>
+	<lang id="word-copyaddress">
+		<zh-CN>点击复制地址</zh-CN>
+		<en-US>Click to copy address</en-US>
+	</lang>
 	<lang id="word-proxyprotocol">
 		<zh-CN>代理协议 (Proxy Protocol)</zh-CN>
 		<en-US>Proxy Protocol</en-US>
