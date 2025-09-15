@@ -17,6 +17,8 @@ import (
 	"github.com/tidwall/pretty"
 )
 
+var JsonDbPretty = false
+
 func NewJsonDb(runPath string) *JsonDb {
 	return &JsonDb{
 		RunPath:        runPath,
@@ -362,17 +364,24 @@ func storeOrderedMapToFile(m *OrderedSyncMap, filePath string) {
 		panic(err)
 	}
 
-	// 使用 tidwall/pretty 一次性格式化整个数组
-	opts := &pretty.Options{
-		Width:    1,      // 设置为1，强制所有数组都换行
-		Prefix:   "",     // 不需要前缀，因为是整个文件
-		Indent:   "    ", // 缩进（4个空格）
-		SortKeys: false,  // 保持原有的键顺序
+	// 根据配置决定是否格式化
+	var outputData []byte
+	if JsonDbPretty {
+		// 使用 tidwall/pretty 格式化
+		opts := &pretty.Options{
+			Width:    1,      // 设置为1，强制所有数组都换行
+			Prefix:   "",     // 不需要前缀，因为是整个文件
+			Indent:   "    ", // 缩进（4个空格）
+			SortKeys: false,  // 保持原有的键顺序
+		}
+		outputData = pretty.PrettyOptions(data, opts)
+	} else {
+		// 使用压缩的JSON
+		outputData = data
 	}
-	formatted := pretty.PrettyOptions(data, opts)
 
-	// 写入格式化后的JSON（pretty已经包含换行符）
-	if _, err = file.Write(formatted); err != nil {
+	// 写入JSON数据
+	if _, err = file.Write(outputData); err != nil {
 		panic(err)
 	}
 
@@ -409,17 +418,24 @@ func storeGlobalToFile(m *Glob, filePath string) {
 		panic(err)
 	}
 
-	// 使用 tidwall/pretty 格式化，直接支持前缀
-	opts := &pretty.Options{
-		Width:    1,      // 设置为1，强制所有数组都换行
-		Prefix:   "",     // global.json 不需要前缀
-		Indent:   "    ", // 缩进（4个空格）
-		SortKeys: false,  // 保持原有的键顺序
+	// 根据配置决定是否格式化
+	var outputData []byte
+	if JsonDbPretty {
+		// 使用 tidwall/pretty 格式化
+		opts := &pretty.Options{
+			Width:    1,      // 设置为1，强制所有数组都换行
+			Prefix:   "",     // global.json 不需要前缀
+			Indent:   "    ", // 缩进（4个空格）
+			SortKeys: false,  // 保持原有的键顺序
+		}
+		outputData = pretty.PrettyOptions(data, opts)
+	} else {
+		// 使用压缩的JSON
+		outputData = data
 	}
-	formatted := pretty.PrettyOptions(data, opts)
 
-	// 写入格式化后的JSON（pretty已经包含换行符）
-	_, err = file.Write(formatted)
+	// 写入JSON数据
+	_, err = file.Write(outputData)
 	if err != nil {
 		panic(err)
 	}
