@@ -67,8 +67,9 @@ func NewIPBlacklist(blacklist []string) *IPBlacklist {
 				bl.cidrNets = append(bl.cidrNets, cidrNet)
 			}
 		} else {
-			// 单个IP地址
-			ip := net.ParseIP(entry)
+			// 单个IP地址，使用normalizeIP进行规范化
+			normalizedIP := normalizeIP(entry)
+			ip := net.ParseIP(normalizedIP)
 			if ip != nil {
 				// 统一存储为字符串格式
 				bl.singleIPs[ip.String()] = true
@@ -203,23 +204,56 @@ func RemovePortFromHost(host string) string {
 
 // GetIpByAddr
 // return "2001:db8::1"
+// normalizeIP 将IP地址规范化，特别是将IPv4映射的IPv6地址转换为IPv4格式
+// 例如: ::ffff:192.168.1.1 -> 192.168.1.1
+func normalizeIP(ipStr string) string {
+	if ipStr == "" {
+		return ipStr
+	}
+
+	// 去除前后空格
+	ipStr = strings.TrimSpace(ipStr)
+
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		// 不是有效的IP地址，返回原值
+		return ipStr
+	}
+
+	// 如果是IPv4地址或IPv4映射的IPv6地址，转换为4字节形式
+	if v4 := ip.To4(); v4 != nil {
+		return v4.String()
+	}
+
+	// 纯IPv6地址，返回规范化的字符串表示
+	return ip.String()
+}
+
 func GetIpByAddr(host string) string {
 	if len(host) == 0 {
 		return host
 	}
 	var idx int
+	var ipPart string
+
 	// IPv6
 	if host[0] == '[' {
 		if idx = strings.IndexByte(host, ']'); idx != -1 {
-			return host[1:idx]
+			ipPart = host[1:idx]
+		} else {
+			return ""
 		}
-		return ""
+	} else {
+		// IPv4 or Domain
+		if idx = strings.LastIndexByte(host, ':'); idx != -1 && idx == strings.IndexByte(host, ':') {
+			ipPart = host[:idx]
+		} else {
+			ipPart = host
+		}
 	}
-	// IPv4 or Domain
-	if idx = strings.LastIndexByte(host, ':'); idx != -1 && idx == strings.IndexByte(host, ':') {
-		return host[:idx]
-	}
-	return host
+
+	// 规范化IP地址（处理IPv4映射的IPv6地址）
+	return normalizeIP(ipPart)
 }
 
 func IsDomain(s string) bool {
