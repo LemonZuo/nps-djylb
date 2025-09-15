@@ -61,10 +61,19 @@ func NewIPBlacklist(blacklist []string) *IPBlacklist {
 		}
 
 		if strings.Contains(entry, "/") {
-			// CIDR格式
-			_, cidrNet, err := net.ParseCIDR(entry)
-			if err == nil && cidrNet != nil {
-				bl.cidrNets = append(bl.cidrNets, cidrNet)
+			// CIDR格式，需要先规范化IP部分
+			// 例如: ::ffff:192.168.1.0/24 -> 192.168.1.0/24
+			slashIdx := strings.LastIndex(entry, "/")
+			if slashIdx > 0 {
+				ipPart := entry[:slashIdx]
+				maskPart := entry[slashIdx:]
+				normalizedIP := normalizeIP(ipPart)
+				normalizedCIDR := normalizedIP + maskPart
+
+				_, cidrNet, err := net.ParseCIDR(normalizedCIDR)
+				if err == nil && cidrNet != nil {
+					bl.cidrNets = append(bl.cidrNets, cidrNet)
+				}
 			}
 		} else {
 			// 单个IP地址，使用normalizeIP进行规范化
@@ -252,8 +261,7 @@ func GetIpByAddr(host string) string {
 		}
 	}
 
-	// 规范化IP地址（处理IPv4映射的IPv6地址）
-	return normalizeIP(ipPart)
+	return ipPart
 }
 
 func IsDomain(s string) bool {
@@ -782,6 +790,9 @@ func IsIpInBlacklist(ipStr string, key string, blacklist []string) bool {
 		}
 		// 否则可能是纯 IPv6 地址，保持不变
 	}
+
+	// 规范化IP地址（处理IPv4映射的IPv6地址）
+	ipStr = normalizeIP(ipStr)
 
 	// 解析目标 IP
 	targetIP := net.ParseIP(ipStr)
