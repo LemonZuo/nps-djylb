@@ -143,7 +143,7 @@ func (s *TunnelModeServer) doConnect(c net.Conn, command uint8) {
 
 	// 记录完整的连接信息（包含客户端IP和端口）
 	clientAddr := c.RemoteAddr().String()
-	logs.Trace("SOCKS5 connection: client=%s -> target=%s", clientAddr, addr)
+	logs.Trace("socks5 connection: client=%s -> target=%s", clientAddr, addr)
 
 	var ltype string
 	if command == associateMethod {
