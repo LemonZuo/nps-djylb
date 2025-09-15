@@ -49,10 +49,10 @@ const (
 	authFailure     = uint8(1)
 )
 
-//type Sock5ModeServer struct {
+// type Sock5ModeServer struct {
 //	BaseServer
 //	listener net.Listener
-//}
+// }
 
 // req
 func (s *TunnelModeServer) handleSocks5Request(c net.Conn) {
@@ -140,6 +140,11 @@ func (s *TunnelModeServer) doConnect(c net.Conn, command uint8) {
 	_ = binary.Read(c, binary.BigEndian, &port)
 	// connect to host
 	addr := net.JoinHostPort(host, strconv.Itoa(int(port)))
+
+	// 记录完整的连接信息（包含客户端IP和端口）
+	clientAddr := c.RemoteAddr().String()
+	logs.Trace("SOCKS5 connection: client=%s -> target=%s", clientAddr, addr)
+
 	var ltype string
 	if command == associateMethod {
 		ltype = common.CONN_UDP
@@ -394,8 +399,8 @@ func ProcessMix(c *conn.Conn, s *TunnelModeServer) error {
 				return errors.New("http proxy is disabled")
 			}
 
-			//ss := NewTunnelModeServer(ProcessHttp, s.Bridge, s.Task)
-			//defer ss.Close()
+			// ss := NewTunnelModeServer(ProcessHttp, s.Bridge, s.Task)
+			// defer ss.Close()
 			if err := ProcessHttp(c.SetRb(buf), s); err != nil {
 				logs.Warn("http proxy error: %v", err)
 				_ = c.Close()
