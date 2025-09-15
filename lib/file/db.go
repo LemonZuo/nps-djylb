@@ -141,17 +141,17 @@ func (s *DbUtils) GetClientIdByMd5Vkey(vkey string) (id int, err error) {
 }
 
 func (s *DbUtils) NewTask(t *Tunnel) (err error) {
-	//s.JsonDb.Tasks.Range(func(key, value interface{}) bool {
+	// s.JsonDb.Tasks.Range(func(key, value interface{}) bool {
 	//	v := value.(*Tunnel)
 	//	if (v.Mode == "secret" || v.Mode == "p2p") && (t.Mode == "secret" || t.Mode == "p2p") && v.Password == t.Password {
 	//		err = errors.New(fmt.Sprintf("secret mode keys %s must be unique", t.Password))
 	//		return false
 	//	}
 	//	return true
-	//})
-	//if err != nil {
+	// })
+	// if err != nil {
 	//	return
-	//}
+	// }
 	if (t.Mode == "secret" || t.Mode == "p2p") && t.Password == "" {
 		t.Password = crypt.GetRandomString(16, t.Id)
 	}
@@ -229,8 +229,14 @@ func (s *DbUtils) UpdateTask(t *Tunnel) error {
 }
 
 func (s *DbUtils) SaveGlobal(t *Glob) error {
+	// 双删策略：第一次删除，避免并发读取到旧缓存
+	common.ClearIPBlacklist("global")
+	// 更新内存数据
 	s.JsonDb.Global = t
+	// 持久化到文件
 	s.JsonDb.StoreGlobalToJsonFile()
+	// 双删策略：第二次删除，确保缓存最终一致性
+	common.ClearIPBlacklist("global")
 	return nil
 }
 

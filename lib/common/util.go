@@ -30,6 +30,142 @@ import (
 	"github.com/djylb/nps/lib/logs"
 )
 
+// IPBlacklist 优化的IP黑名单结构，使用预编译的数据结构提高匹配效率
+type IPBlacklist struct {
+	// 单个IP地址使用map存储，O(1)查找
+	singleIPs map[string]bool
+	// CIDR网段列表
+	cidrNets []*net.IPNet
+	// 使用读写锁保护并发访问
+	mu sync.RWMutex
+}
+
+// 全局黑名单缓存，key为黑名单的hash值
+var (
+	blacklistCache = make(map[string]*IPBlacklist)
+	blacklistMutex sync.RWMutex
+)
+
+// NewIPBlacklist 创建新的IP黑名单
+func NewIPBlacklist(blacklist []string) *IPBlacklist {
+	bl := &IPBlacklist{
+		singleIPs: make(map[string]bool),
+		cidrNets:  make([]*net.IPNet, 0),
+	}
+
+	// 预处理黑名单
+	for _, entry := range blacklist {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+
+		if strings.Contains(entry, "/") {
+			// CIDR格式
+			_, cidrNet, err := net.ParseCIDR(entry)
+			if err == nil && cidrNet != nil {
+				bl.cidrNets = append(bl.cidrNets, cidrNet)
+			}
+		} else {
+			// 单个IP地址
+			ip := net.ParseIP(entry)
+			if ip != nil {
+				// 统一存储为字符串格式
+				bl.singleIPs[ip.String()] = true
+			}
+		}
+	}
+
+	return bl
+}
+
+// Contains 检查IP是否在黑名单中
+func (bl *IPBlacklist) Contains(targetIP net.IP) bool {
+	if targetIP == nil {
+		return false
+	}
+
+	bl.mu.RLock()
+	defer bl.mu.RUnlock()
+
+	// 先检查单个IP（O(1)复杂度）
+	if bl.singleIPs[targetIP.String()] {
+		return true
+	}
+
+	// 再检查CIDR网段
+	for _, cidrNet := range bl.cidrNets {
+		if cidrNet.Contains(targetIP) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// UpdateIPBlacklist 更新指定key的黑名单
+func UpdateIPBlacklist(key string, blacklist []string) {
+	bl := NewIPBlacklist(blacklist)
+
+	blacklistMutex.Lock()
+	blacklistCache[key] = bl
+	blacklistMutex.Unlock()
+}
+
+// ClearIPBlacklist 清除指定key的黑名单缓存
+func ClearIPBlacklist(key string) {
+	blacklistMutex.Lock()
+	delete(blacklistCache, key)
+	blacklistMutex.Unlock()
+}
+
+// ClearAllIPBlacklist 清除所有黑名单缓存
+func ClearAllIPBlacklist() {
+	blacklistMutex.Lock()
+	blacklistCache = make(map[string]*IPBlacklist)
+	blacklistMutex.Unlock()
+}
+
+// getOrCreateIPBlacklist 获取或创建IP黑名单对象
+func getOrCreateIPBlacklist(key string, blacklist []string) *IPBlacklist {
+	if len(blacklist) == 0 {
+		return &IPBlacklist{
+			singleIPs: make(map[string]bool),
+			cidrNets:  make([]*net.IPNet, 0),
+		}
+	}
+
+	// 先尝试从缓存中读取
+	blacklistMutex.RLock()
+	if bl, exists := blacklistCache[key]; exists {
+		blacklistMutex.RUnlock()
+		return bl
+	}
+	blacklistMutex.RUnlock()
+
+	// 缓存未命中，创建新的黑名单对象
+	bl := NewIPBlacklist(blacklist)
+
+	// 存入缓存
+	blacklistMutex.Lock()
+	// 限制缓存大小，防止内存泄漏
+	if len(blacklistCache) > 100 {
+		// 清理一半的缓存
+		count := 0
+		for k := range blacklistCache {
+			delete(blacklistCache, k)
+			count++
+			if count >= 50 {
+				break
+			}
+		}
+	}
+	blacklistCache[key] = bl
+	blacklistMutex.Unlock()
+
+	return bl
+}
+
 // ExtractHost
 // return "[2001:db8::1]:80"
 func ExtractHost(input string) string {
@@ -590,7 +726,8 @@ func in(target string, strArray []string) bool {
 }
 
 // IsIpInBlacklist 检查 IP 是否在黑名单中（支持 IPv4、IPv6、IPv4 CIDR、IPv6 CIDR）
-func IsIpInBlacklist(ipStr string, blacklist []string) bool {
+// 使用优化的数据结构，大幅提升查询性能
+func IsIpInBlacklist(ipStr string, key string, blacklist []string) bool {
 	// 清理输入的 IP 字符串
 	ipStr = strings.TrimSpace(ipStr)
 	if ipStr == "" {
@@ -618,32 +755,14 @@ func IsIpInBlacklist(ipStr string, blacklist []string) bool {
 		return false
 	}
 
-	for _, entry := range blacklist {
-		entry = strings.TrimSpace(entry)
-		if entry == "" {
-			continue
-		}
-
-		// 检查是否是 CIDR 格式（IPv4 或 IPv6）
-		if strings.Contains(entry, "/") {
-			_, cidrNet, err := net.ParseCIDR(entry)
-			if err == nil && cidrNet != nil && cidrNet.Contains(targetIP) {
-				return true
-			}
-		} else {
-			// 单个 IP 地址比较
-			entryIP := net.ParseIP(entry)
-			if entryIP != nil && entryIP.Equal(targetIP) {
-				return true
-			}
-		}
-	}
-	return false
+	// 使用优化的黑名单结构进行匹配
+	bl := getOrCreateIPBlacklist(key, blacklist)
+	return bl.Contains(targetIP)
 }
 
 func IsBlackIp(ipPort, vkey string, blackIpList []string) bool {
 	ip := GetIpByAddr(ipPort)
-	if IsIpInBlacklist(ip, blackIpList) {
+	if IsIpInBlacklist(ip, vkey, blackIpList) {
 		logs.Warn("IP [%s] is in the blacklist for [%s]", ip, vkey)
 		return true
 	}
@@ -655,9 +774,9 @@ func CopyBuffer(dst io.Writer, src io.Reader, label ...string) (written int64, e
 	defer CopyBuff.Put(buf)
 	for {
 		nr, er := src.Read(buf)
-		//if len(pr)>0 && pr[0] && nr > 50 {
+		// if len(pr)>0 && pr[0] && nr > 50 {
 		//	logs.Warn(string(buf[:50]))
-		//}
+		// }
 		if nr > 0 {
 			nw, ew := dst.Write(buf[0:nr])
 			if nw > 0 {

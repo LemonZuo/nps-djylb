@@ -180,8 +180,14 @@ func (s *ClientController) Edit() {
 				c.Rate.Start()
 			}
 
+			// 双删策略：第一次删除，避免并发读取到旧缓存
+			common.ClearIPBlacklist(c.VerifyKey)
+			// 更新内存中的黑名单数据
 			c.BlackIpList = RemoveRepeatedElement(strings.Split(s.getEscapeString("blackiplist"), "\r\n"))
+			// 持久化到文件
 			file.GetDb().JsonDb.StoreClientsToJsonFile()
+			// 双删策略：第二次删除，确保缓存最终一致性
+			common.ClearIPBlacklist(c.VerifyKey)
 		}
 		s.AjaxOk("save success")
 	}
