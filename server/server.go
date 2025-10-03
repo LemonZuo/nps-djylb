@@ -1055,6 +1055,16 @@ func GetDashboardData(force bool) map[string]interface{} {
 				}
 			}
 		}
+		if _, ok := protoVals["tcp"]; !ok {
+			if conns, err := net.Connections("tcp"); err == nil {
+				protoVals["tcp"] = int64(len(conns))
+			}
+		}
+		if _, ok := protoVals["udp"]; !ok {
+			if conns, err := net.Connections("udp"); err == nil {
+				protoVals["udp"] = int64(len(conns))
+			}
+		}
 
 		var ioSend, ioRecv interface{}
 		if v, ok := ioSendRate.Load().(float64); ok {
@@ -1222,6 +1232,17 @@ func GetDashboardData(force bool) map[string]interface{} {
 			}
 		}
 	}
+	if _, ok := data["tcp"]; !ok {
+		if conns, err := net.Connections("tcp"); err == nil {
+			data["tcp"] = int64(len(conns))
+		}
+	}
+	if _, ok := data["udp"]; !ok {
+		if conns, err := net.Connections("udp"); err == nil {
+			data["udp"] = int64(len(conns))
+		}
+	}
+
 	if v, ok := ioSendRate.Load().(float64); ok {
 		data["io_send"] = v
 	}
