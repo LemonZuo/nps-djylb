@@ -1184,6 +1184,9 @@ loop:
 							TargetStr: strconv.Itoa(targets[i]),
 						}
 					}
+					if t.Target != nil {
+						tl.Target.ProxyProtocol = t.Target.ProxyProtocol
+					}
 				}
 				if tl.MultiAccount == nil {
 					tl.MultiAccount = new(file.MultiAccount)
