@@ -21,9 +21,9 @@ require (
 	github.com/shirou/gopsutil/v4 v4.25.11
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/spf13/pflag v1.0.10
-	github.com/xtaci/kcp-go/v5 v5.6.55
 	github.com/tidwall/pretty v1.2.1
-    go.uber.org/zap v1.27.1
+	github.com/xtaci/kcp-go/v5 v5.6.55
+	go.uber.org/zap v1.27.1
 	golang.org/x/crypto v0.46.0
 	golang.org/x/net v0.48.0
 	golang.org/x/sys v0.39.0
