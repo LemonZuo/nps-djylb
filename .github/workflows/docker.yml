@@ -10,6 +10,9 @@ on:
 jobs:
   build_docker:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         image: [nps, npc]
