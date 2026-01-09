@@ -12,9 +12,11 @@ HUB_USER=""
 BUILDER_NAME="multi-platform-build"
 MENU_SELECTION=""  # 用于存储菜单选择
 
-# 时间记录关联数组
-declare -A BUILD_TIMES
-declare -A BUILD_STATUS
+# 时间记录变量（替代关联数组，兼容 Bash 3.x）
+BUILD_TIMES_NPS=""
+BUILD_TIMES_NPC=""
+BUILD_STATUS_NPS=""
+BUILD_STATUS_NPC=""
 
 # ========== 工具函数 ==========
 
@@ -113,30 +115,65 @@ format_time() {
     fi
 }
 
+# 设置构建状态的辅助函数
+set_build_status() {
+    local image_type=$1
+    local status=$2
+    case "$image_type" in
+        nps) BUILD_STATUS_NPS="$status" ;;
+        npc) BUILD_STATUS_NPC="$status" ;;
+    esac
+}
+
+set_build_time() {
+    local image_type=$1
+    local time=$2
+    case "$image_type" in
+        nps) BUILD_TIMES_NPS="$time" ;;
+        npc) BUILD_TIMES_NPC="$time" ;;
+    esac
+}
+
+get_build_status() {
+    local image_type=$1
+    case "$image_type" in
+        nps) echo "$BUILD_STATUS_NPS" ;;
+        npc) echo "$BUILD_STATUS_NPC" ;;
+    esac
+}
+
+get_build_time() {
+    local image_type=$1
+    case "$image_type" in
+        nps) echo "$BUILD_TIMES_NPS" ;;
+        npc) echo "$BUILD_TIMES_NPC" ;;
+    esac
+}
+
 # 构建单个镜像
 build_image() {
     local image_type=$1
     local start_time=$(date +%s)
-    
+
     echo ""
     echo "========== 构建 ${image_type} 镜像 =========="
-    
+
     # 动态设置仓库名
     local repo_name="${HUB_USER}/djylb-${image_type}"
     local dockerfile="${image_type}.Dockerfile"
-    
+
     # 检查 Dockerfile 是否存在
     if [ ! -f "$dockerfile" ]; then
         echo "错误: ${dockerfile} 文件不存在"
-        BUILD_STATUS[${image_type}]="失败 - Dockerfile 不存在"
+        set_build_status "${image_type}" "失败 - Dockerfile 不存在"
         return 1
     fi
-    
+
     echo "镜像仓库: ${repo_name}"
     echo "Dockerfile: ${dockerfile}"
     echo "版本标签: ${VERSION}"
     echo "开始构建..."
-    
+
     # 执行构建
     if docker buildx build \
         --cache-from=type=registry,ref=${repo_name}:cache \
@@ -150,14 +187,14 @@ build_image() {
         -t ${repo_name}:latest . \
         --push \
         --progress=plain; then
-        
+
         local end_time=$(date +%s)
         local elapsed=$((end_time - start_time))
-        BUILD_TIMES[${image_type}]=$elapsed
-        BUILD_STATUS[${image_type}]="成功"
+        set_build_time "${image_type}" "$elapsed"
+        set_build_status "${image_type}" "成功"
         echo "✅ ${image_type} 构建成功，耗时: ${elapsed} 秒"
     else
-        BUILD_STATUS[${image_type}]="失败"
+        set_build_status "${image_type}" "失败"
         echo "❌ ${image_type} 构建失败"
         return 1
     fi
@@ -167,28 +204,30 @@ build_image() {
 print_summary() {
     local script_end_time=$(date +%s)
     local total_elapsed=$((script_end_time - SCRIPT_START_TIME))
-    
+
     echo ""
     echo "=========================================="
     echo "              构建汇总报告                "
     echo "=========================================="
-    
+
     # 打印各镜像构建状态和时间
     echo ""
     echo "镜像构建详情:"
     echo "------------------------------------------"
-    
-    for image_type in "${!BUILD_STATUS[@]}"; do
-        local status="${BUILD_STATUS[${image_type}]}"
-        local time_str=""
-        
-        if [[ -n "${BUILD_TIMES[${image_type}]}" ]]; then
-            time_str=" (${BUILD_TIMES[${image_type}]} 秒)"
+
+    for image_type in nps npc; do
+        local status=$(get_build_status "$image_type")
+        local build_time=$(get_build_time "$image_type")
+
+        if [ -n "$status" ]; then
+            local time_str=""
+            if [ -n "$build_time" ]; then
+                time_str=" (${build_time} 秒)"
+            fi
+            printf "  %-10s : %s%s\n" "${image_type}" "${status}" "${time_str}"
         fi
-        
-        printf "  %-10s : %s%s\n" "${image_type}" "${status}" "${time_str}"
     done
-    
+
     # 打印时间统计
     echo ""
     echo "时间统计:"
@@ -196,19 +235,20 @@ print_summary() {
     echo "  开始时间: $(format_time $SCRIPT_START_TIME)"
     echo "  结束时间: $(format_time $script_end_time)"
     echo "  总耗时:   ${total_elapsed} 秒"
-    
+
     # 打印成功推送的镜像
     echo ""
     echo "成功推送的镜像:"
     echo "------------------------------------------"
-    
-    for image_type in "${!BUILD_STATUS[@]}"; do
-        if [[ "${BUILD_STATUS[${image_type}]}" == "成功" ]]; then
-            echo "  ✅ ${HUB_USER}/${image_type}:${VERSION}"
-            echo "  ✅ ${HUB_USER}/${image_type}:latest"
+
+    for image_type in nps npc; do
+        local status=$(get_build_status "$image_type")
+        if [ "$status" = "成功" ]; then
+            echo "  ✅ ${HUB_USER}/djylb-${image_type}:${VERSION}"
+            echo "  ✅ ${HUB_USER}/djylb-${image_type}:latest"
         fi
     done
-    
+
     echo "=========================================="
 }
 
