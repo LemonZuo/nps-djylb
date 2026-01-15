@@ -2,10 +2,6 @@ name: Docker-Mod
 
 on:
   workflow_dispatch:
-  release:
-    types: [ published ]
-    #    branches: [ master ]
-    tags: [ v* ]
 
 jobs:
   build_docker:
