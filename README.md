@@ -139,6 +139,28 @@ npc update && npc restart
 
 ### Stable
 
+- **v0.34.1 (2026-02-03)**
+  - 优化P2P握手逻辑
+  - 更新相关依赖包
+
+- **v0.34.0 (2026-02-02)**
+  - 增强P2P打洞能力（不再兼容旧版） [#198](https://github.com/djylb/nps/pull/198) (感谢[cr4n5](https://github.com/cr4n5))
+  - 避免连接过程超时断连
+  - 混合代理添加白名单功能 [#205](https://github.com/djylb/nps/pull/205) (感谢[Yourdaylight](https://github.com/Yourdaylight))
+  - 混合代理同时支持黑白名单功能
+  - P2P优先使用IPv6直连
+  - 优化P2P处理性能
+  - 恢复P2P旧版客户端兼容性
+  - 修复Win下P2P打洞失败
+  - 更新相关依赖包
+
+- **v0.33.14 (2026-01-22)**
+  - 调整限速逻辑
+  - 修复pprof配置不生效 [#199](https://github.com/djylb/nps/issues/199)
+  - 优化程序稳定性 [#201](https://github.com/djylb/nps/pull/201)
+  - 优化高压转发场景
+  - 更新相关依赖包
+
 - **v0.33.13 (2026-01-05)**
   - 优化程序稳定性
   - 优化吞吐性能

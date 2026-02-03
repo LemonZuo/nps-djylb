@@ -123,7 +123,7 @@ func StartFromFile(pCtx context.Context, pCancel context.CancelFunc, path string
 	cnf, err := config.NewConfig(path)
 	if err != nil || cnf.CommonConfig == nil {
 		logs.Error("Config file %s loading error %v", path, err)
-		os.Exit(0)
+		os.Exit(1)
 	}
 	logs.Info("Loading configuration file %s successfully", path)
 
@@ -549,7 +549,7 @@ func NewConn(tp string, vkey string, server string, proxyUrl string) (*conn.Conn
 		if !bytes.Equal(b, crypt.ComputeHMAC(vkey, ts, hmacBuf, []byte(version.GetVersion(Ver)))) {
 			logs.Warn("The client does not match the server version. The current core version of the client is %s", version.GetVersion(Ver))
 			_ = c.Close()
-			return nil, "", err
+			return nil, "", fmt.Errorf("the client does not match the server version %s", version.GetVersion(Ver))
 		}
 		if Ver > 1 {
 			fpBuf, err := c.GetShortLenContent()
