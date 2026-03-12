@@ -84,7 +84,7 @@ jobs:
             cp -r web/static docker-context/web/
             cp -r web/views docker-context/web/
             cp conf/nps.conf docker-context/conf/nps.conf
-            cp entrypoint_nps.sh docker-context/entrypoint_nps.sh
+            cp .github/docker/entrypoint_nps.sh docker-context/entrypoint_nps.sh
           fi
 
       - name: Set up QEMU
