@@ -186,19 +186,27 @@
     color: var(--color);
 }
 
-.password-input-group .input-group-append > .password-refresh-btn:hover,
-.password-input-group .input-group-append > .password-refresh-btn:focus {
-    background: var(--bg-mid);
-    border-color: var(--border-color);
-    color: var(--color);
-}
-
 .password-input-group .input-group-append > .password-refresh-btn .fa {
     color: #1ab394;
 }
 
-.password-input-group .input-group-append > .password-refresh-btn:hover .fa,
-.password-input-group .input-group-append > .password-refresh-btn:focus .fa {
-    color: #18a689;
+@keyframes pwd-refresh-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.password-input-group .input-group-append > .password-refresh-btn .fa.is-spinning {
+    animation: pwd-refresh-spin 0.8s ease-in-out;
 }
 </style>
+<script>
+$(document).ready(function () {
+    $('.password-refresh-btn').on('click', function () {
+        var icon = this.querySelector('i');
+        if (!icon) return;
+        icon.classList.remove('is-spinning');
+        void icon.offsetWidth;
+        icon.classList.add('is-spinning');
+    });
+});
+</script>
