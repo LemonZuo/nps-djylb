@@ -35,6 +35,18 @@
 </div>
 
 <script>
+    function getTooltipText(key) {
+        var lang = $('#languagemenu').attr('lang') || 'zh-CN';
+        if (key === 'word-copyhttpproxy') {
+            return lang === 'en-US' ? 'Click to copy HTTP proxy address' : '点击复制HTTP代理地址';
+        } else if (key === 'word-copysocks5proxy') {
+            return lang === 'en-US' ? 'Click to copy SOCKS5 proxy address' : '点击复制SOCKS5代理地址';
+        } else if (key === 'word-copyaddress') {
+            return lang === 'en-US' ? 'Click to copy address' : '点击复制地址';
+        }
+        return '';
+    }
+
     name = '{{.name}}:'.replace(/\s*/g, "")
     $('#langtag').attr('langtag', 'page-list' + name.replace(/:.*/, "")).next().text(name.split(":")[1])
 
@@ -161,8 +173,8 @@
                 field: 'Remark', //域值
                 title: '<span langtag="word-remark"></span>', //标题
                 halign: 'center',
-                visible: true, //false表示不显示
-                sortable: true, //启用排序
+                visible: false, //false表示不显示
+                sortable: false, //启用排序
                 formatter: function (value, row, index) {
                     return '<span onclick="oCopy(this)">' + value + '</span>'
                 }
@@ -199,6 +211,40 @@
                     return '<span onclick="oCopy(this)">' + value + '</span>'
                 }
             },
+            {{ if or (not .type) (eq .type "tcp") (eq .type "udp") (eq .type "mixProxy") }}
+            {
+                field: 'AccessAddress',
+                title: '<span langtag="word-accessaddress"></span>',
+                halign: 'center',
+                visible: true,
+                sortable: false,
+                formatter: function (value, row, index) {
+                    if (row.Mode == 'tcp' || row.Mode == 'udp') {
+                        var address = '{{.ip}}:' + row.Port;
+                        return '<span onclick="copyText($(this).attr(\'data-copy\'))" data-copy="' + escapeHtml(address) + '" style="cursor: pointer; white-space: nowrap;" title="' + getTooltipText('word-copyaddress') + '">' + escapeHtml(address) + '</span>';
+                    }
+                    if (row.Mode == 'mixProxy') {
+                        var auth = '';
+                        if (row.Client && row.Client.Cnf && row.Client.Cnf.U && row.Client.Cnf.P) {
+                            auth = row.Client.Cnf.U + ':' + row.Client.Cnf.P + '@';
+                        }
+                        var items = [];
+                        if (row.HttpProxy) {
+                            var httpDisplay = 'http://{{.ip}}:' + row.Port;
+                            var httpCopy = 'http://' + auth + '{{.ip}}:' + row.Port;
+                            items.push('<div onclick="copyText($(this).attr(\'data-copy\'))" data-copy="' + escapeHtml(httpCopy) + '" style="cursor: pointer; white-space: nowrap;" title="' + getTooltipText('word-copyhttpproxy') + '">' + escapeHtml(httpDisplay) + '</div>');
+                        }
+                        if (row.Socks5Proxy) {
+                            var socksDisplay = 'socks5://{{.ip}}:' + row.Port;
+                            var socksCopy = 'socks5://' + auth + '{{.ip}}:' + row.Port;
+                            items.push('<div onclick="copyText($(this).attr(\'data-copy\'))" data-copy="' + escapeHtml(socksCopy) + '" style="cursor: pointer; white-space: nowrap;" title="' + getTooltipText('word-copysocks5proxy') + '">' + escapeHtml(socksDisplay) + '</div>');
+                        }
+                        return items.join('');
+                    }
+                    return '';
+                }
+            },
+            {{ end }}
             {{ if or (not .type) (eq .type "tcp") (eq .type "udp") (eq .type "secret") (eq .type "p2p") }}
             {
                 field: 'Target.TargetStr', //域值
