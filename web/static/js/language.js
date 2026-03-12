@@ -320,13 +320,36 @@ function oCopy(obj){
 }
 
 function copyText(text) {
-    const textarea = document.createElement("textarea");
+    var value = text == null ? '' : String(text);
+    var done = function () { showMsg(langreply('Copied')); };
+    var fail = function () { showMsg(langreply('Copied'), 'error'); };
+
+    if (navigator.clipboard && navigator.clipboard.writeText && (window.isSecureContext || location.protocol === 'https:')) {
+        navigator.clipboard.writeText(value).then(done).catch(function () {
+            if (!copyTextLegacy(value)) { fail(); } else { done(); }
+        });
+        return;
+    }
+    if (copyTextLegacy(value)) { done(); } else { fail(); }
+}
+
+function copyTextLegacy(text) {
+    var textarea = document.createElement("textarea");
     textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;';
     document.body.appendChild(textarea);
+    var prevFocus = document.activeElement;
+    textarea.focus();
     textarea.select();
-    document.execCommand("copy");
+    try { textarea.setSelectionRange(0, text.length); } catch (e) {}
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
     document.body.removeChild(textarea);
-    showMsg(langreply('Copied'));
+    if (prevFocus && typeof prevFocus.focus === 'function') {
+        try { prevFocus.focus(); } catch (e) {}
+    }
+    return ok;
 }
 
 function showMsg(text, type = 'success', dur = 1500, cb) {

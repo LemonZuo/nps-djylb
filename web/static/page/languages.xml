@@ -618,6 +618,14 @@
 		<zh-CN>点击复制地址</zh-CN>
 		<en-US>Click to copy address</en-US>
 	</lang>
+	<lang id="word-viewaddresses">
+		<zh-CN>查看访问地址</zh-CN>
+		<en-US>View access addresses</en-US>
+	</lang>
+	<lang id="word-copy">
+		<zh-CN>复制</zh-CN>
+		<en-US>Copy</en-US>
+	</lang>
 	<lang id="word-proxyprotocol">
 		<zh-CN>代理协议 (Proxy Protocol)</zh-CN>
 		<en-US>Proxy Protocol</en-US>

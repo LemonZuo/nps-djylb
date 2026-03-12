@@ -34,6 +34,35 @@
     </div>
 </div>
 
+<div class="modal fade" id="addressModal" tabindex="-1" role="dialog" aria-labelledby="addressModalLabel" aria-hidden="true" data-backdrop="true" data-keyboard="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addressModalLabel" langtag="word-accessaddress"></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="addressModalBody"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* 让 dialog 按内容收缩，避免大屏下整张弹窗过宽 */
+    #addressModal .modal-dialog { max-width: min(720px, 92vw) !important; width: fit-content; min-width: 360px; margin: 1.75rem auto !important; }
+    #addressModal .modal-content { width: 100%; }
+    #addressModal .modal-header { padding: 12px 20px; border-bottom: 1px solid #e7eaec; display: flex; align-items: center; }
+    #addressModal .modal-title { margin: 0; font-size: 16px; font-weight: 600; }
+    #addressModal .modal-header .close { margin: 0 0 0 16px; padding: 0; font-size: 22px; line-height: 1; }
+    #addressModal .modal-body { padding: 12px 20px; }
+    #addressModal .addr-row { display: flex; align-items: center; padding: 8px 0; gap: 10px; }
+    #addressModal .addr-row + .addr-row { border-top: 1px solid #f0f0f0; }
+    #addressModal .addr-label { flex: 0 0 auto; min-width: 64px; text-align: center; font-size: 11px; padding: 4px 8px; }
+    #addressModal .addr-code { flex: 0 1 auto; background: #f7f9fa; color: #2f4050; padding: 6px 10px; border-radius: 3px; word-break: break-all; font-family: Menlo, Consolas, monospace; font-size: 13px; border: 1px solid #e7eaec; }
+    #addressModal .addr-copy { flex: 0 0 auto; }
+</style>
+
 <script>
     function getTooltipText(key) {
         var lang = $('#languagemenu').attr('lang') || 'zh-CN';
@@ -43,8 +72,61 @@
             return lang === 'en-US' ? 'Click to copy SOCKS5 proxy address' : '点击复制SOCKS5代理地址';
         } else if (key === 'word-copyaddress') {
             return lang === 'en-US' ? 'Click to copy address' : '点击复制地址';
+        } else if (key === 'word-viewaddresses') {
+            return lang === 'en-US' ? 'View access addresses' : '查看访问地址';
+        } else if (key === 'word-copy') {
+            return lang === 'en-US' ? 'Copy' : '复制';
         }
         return '';
+    }
+
+    function showAddressModal(btn) {
+        var items;
+        try { items = JSON.parse($(btn).attr('data-addresses') || '[]'); } catch (e) { items = []; }
+        var html = items.map(function (it) {
+            return '<div class="addr-row">'
+                + '<span class="label label-primary addr-label">' + escapeHtml(it.label) + '</span>'
+                + '<code class="addr-code">' + escapeHtml(it.display) + '</code>'
+                + '<button type="button" class="btn btn-sm btn-default addr-copy address-copy-btn" data-copy="' + escapeHtml(it.copy) + '" title="' + getTooltipText('word-copy') + '"><i class="fa fa-copy"></i></button>'
+                + '</div>';
+        }).join('');
+        var $modal = $('#addressModal');
+        if (!$modal.data('moved')) {
+            $modal.appendTo('body').data('moved', true);
+        }
+        var $body = $('#addressModalBody');
+        $body.html(html || '<div class="text-center text-muted">-</div>');
+        $body.off('click', '.address-copy-btn').on('click', '.address-copy-btn', function (e) {
+            e.preventDefault();
+            copyAddressText($(this).attr('data-copy'));
+        });
+        $modal.modal('show');
+    }
+
+    function copyAddressText(text) {
+        var value = text == null ? '' : String(text);
+        var ok = function () { showMsg(langreply('Copied')); };
+        var ng = function () { showMsg(langreply('Copied'), 'error'); };
+        if (navigator.clipboard && navigator.clipboard.writeText && (window.isSecureContext || location.protocol === 'https:')) {
+            navigator.clipboard.writeText(value).then(ok).catch(function () {
+                copyAddressLegacy(value) ? ok() : ng();
+            });
+        } else {
+            copyAddressLegacy(value) ? ok() : ng();
+        }
+    }
+    function copyAddressLegacy(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { ta.setSelectionRange(0, text.length); } catch (e) {}
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        return ok;
     }
 
     name = '{{.name}}:'.replace(/\s*/g, "")
@@ -216,32 +298,29 @@
                 field: 'AccessAddress',
                 title: '<span langtag="word-accessaddress"></span>',
                 halign: 'center',
+                align: 'center',
                 visible: true,
                 sortable: false,
                 formatter: function (value, row, index) {
+                    var items = [];
                     if (row.Mode == 'tcp' || row.Mode == 'udp') {
                         var address = '{{.ip}}:' + row.Port;
-                        return '<span onclick="copyText($(this).attr(\'data-copy\'))" data-copy="' + escapeHtml(address) + '" style="cursor: pointer; white-space: nowrap;" title="' + getTooltipText('word-copyaddress') + '">' + escapeHtml(address) + '</span>';
-                    }
-                    if (row.Mode == 'mixProxy') {
+                        items.push({label: String(row.Mode).toUpperCase(), display: address, copy: address});
+                    } else if (row.Mode == 'mixProxy') {
                         var auth = '';
                         if (row.Client && row.Client.Cnf && row.Client.Cnf.U && row.Client.Cnf.P) {
                             auth = row.Client.Cnf.U + ':' + row.Client.Cnf.P + '@';
                         }
-                        var items = [];
                         if (row.HttpProxy) {
-                            var httpDisplay = 'http://{{.ip}}:' + row.Port;
-                            var httpCopy = 'http://' + auth + '{{.ip}}:' + row.Port;
-                            items.push('<div onclick="copyText($(this).attr(\'data-copy\'))" data-copy="' + escapeHtml(httpCopy) + '" style="cursor: pointer; white-space: nowrap;" title="' + getTooltipText('word-copyhttpproxy') + '">' + escapeHtml(httpDisplay) + '</div>');
+                            items.push({label: 'HTTP', display: 'http://{{.ip}}:' + row.Port, copy: 'http://' + auth + '{{.ip}}:' + row.Port});
                         }
                         if (row.Socks5Proxy) {
-                            var socksDisplay = 'socks5://{{.ip}}:' + row.Port;
-                            var socksCopy = 'socks5://' + auth + '{{.ip}}:' + row.Port;
-                            items.push('<div onclick="copyText($(this).attr(\'data-copy\'))" data-copy="' + escapeHtml(socksCopy) + '" style="cursor: pointer; white-space: nowrap;" title="' + getTooltipText('word-copysocks5proxy') + '">' + escapeHtml(socksDisplay) + '</div>');
+                            items.push({label: 'SOCKS5', display: 'socks5://{{.ip}}:' + row.Port, copy: 'socks5://' + auth + '{{.ip}}:' + row.Port});
                         }
-                        return items.join('');
                     }
-                    return '';
+                    if (items.length === 0) return '';
+                    var data = escapeHtml(JSON.stringify(items));
+                    return '<button type="button" class="btn btn-xs btn-primary" onclick="showAddressModal(this)" data-addresses="' + data + '" title="' + getTooltipText('word-viewaddresses') + '"><i class="fa fa-link"></i> ' + items.length + '</button>';
                 }
             },
             {{ end }}
