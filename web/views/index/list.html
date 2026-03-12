@@ -97,15 +97,16 @@
         $body.html(html || '<div class="text-center text-muted">-</div>');
         $body.off('click', '.address-copy-btn').on('click', '.address-copy-btn', function (e) {
             e.preventDefault();
-            copyAddressText($(this).attr('data-copy'));
+            var $btn = $(this);
+            copyAddressText($btn.attr('data-copy'), $btn);
         });
         $modal.modal('show');
     }
 
-    function copyAddressText(text) {
+    function copyAddressText(text, $btn) {
         var value = text == null ? '' : String(text);
-        var ok = function () { showMsg(langreply('Copied')); };
-        var ng = function () { showMsg(langreply('Copied'), 'error'); };
+        var ok = function () { flashCopyBtn($btn, true); };
+        var ng = function () { flashCopyBtn($btn, false); };
         if (navigator.clipboard && navigator.clipboard.writeText && (window.isSecureContext || location.protocol === 'https:')) {
             navigator.clipboard.writeText(value).then(ok).catch(function () {
                 copyAddressLegacy(value) ? ok() : ng();
@@ -113,6 +114,24 @@
         } else {
             copyAddressLegacy(value) ? ok() : ng();
         }
+    }
+    function flashCopyBtn($btn, success) {
+        if (!$btn || !$btn.length) return;
+        var origHtml = $btn.data('orig-html');
+        if (origHtml == null) {
+            origHtml = $btn.html();
+            $btn.data('orig-html', origHtml);
+        }
+        var addCls = success ? 'btn-success' : 'btn-danger';
+        var icon = success ? 'fa-check' : 'fa-times';
+        clearTimeout($btn.data('reset-timer'));
+        $btn.removeClass('btn-default btn-success btn-danger').addClass(addCls);
+        $btn.html('<i class="fa ' + icon + '"></i>');
+        var t = setTimeout(function () {
+            $btn.removeClass('btn-success btn-danger').addClass('btn-default');
+            $btn.html(origHtml);
+        }, 1200);
+        $btn.data('reset-timer', t);
     }
     function copyAddressLegacy(text) {
         var ta = document.createElement('textarea');
