@@ -73,7 +73,14 @@
                     <div class="form-group" id="p">
                         <label class="control-label font-bold" langtag="word-basicpassword"></label>
                         <div class="col-sm-12">
-                            <input class="form-control" langtag="info-unrestricted" name="p" placeholder="" type="text" value="{{.c.Cnf.P}}">
+                            <div class="input-group password-input-group">
+                                <input class="form-control" id="basic_password" langtag="info-unrestricted" name="p" placeholder="" type="text" value="{{.c.Cnf.P}}">
+                                <span class="input-group-btn">
+                                    <button class="btn btn-default password-refresh-btn" data-langtitle="word-generatenewpassword" onclick="$('#basic_password').val(generateRandomPassword(32))" title="Generate new password" type="button">
+                                        <i class="fa fa-refresh"></i>
+                                    </button>
+                                </span>
+                            </div>
                             <span class="help-block m-b-none" langtag="info-onlyproxy"></span>
                         </div>
                     </div>
@@ -112,8 +119,8 @@
                         <label class="control-label font-bold" langtag="word-connectbyconfig"></label>
                         <div class="col-sm-12">
                             <select class="form-control selectpicker" name="config_conn_allow">
-                                <option {{if eq true .c.ConfigConnAllow}}selected{{end}}  value="1" langtag="word-yes"></option>
                                 <option {{if eq false .c.ConfigConnAllow}}selected{{end}} value="0" langtag="word-no"></option>
+                                <option {{if eq true .c.ConfigConnAllow}}selected{{end}} value="1" langtag="word-yes"></option>
                             </select>
                         </div>
                     </div>
@@ -138,7 +145,7 @@
                     <div class="form-group" id="black_ip_list">
                         <label class="control-label font-bold" langtag="word-blackiplist"></label>
                         <div class="col-sm-12">
-                            <textarea class="form-control" langtag="info-suchasblackiplist" name="blackiplist" placeholder="" rows="4" type="text">{{.BlackIpList}}</textarea>
+                            <textarea class="form-control" langtag="info-suchasblackiplist" name="blackiplist" placeholder="" rows="6" type="text">{{.BlackIpList}}</textarea>
                             <span class="help-block m-b-none" langtag="info-descblackiplist"></span>
                         </div>
                     </div>
@@ -158,3 +165,22 @@
         </div>
     </div>
 </div>
+<style>
+.password-input-group .form-control {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.password-refresh-btn {
+    min-width: 40px;
+}
+
+.password-refresh-btn .fa {
+    color: #1ab394;
+}
+
+.password-refresh-btn:hover .fa,
+.password-refresh-btn:focus .fa {
+    color: #18a689;
+}
+</style>
