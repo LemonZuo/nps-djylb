@@ -86,7 +86,7 @@
             return '<div class="addr-row">'
                 + '<span class="label label-primary addr-label">' + escapeHtml(it.label) + '</span>'
                 + '<code class="addr-code">' + escapeHtml(it.display) + '</code>'
-                + '<button type="button" class="btn btn-sm btn-default addr-copy address-copy-btn" data-copy="' + escapeHtml(it.copy) + '" title="' + getTooltipText('word-copy') + '"><i class="fa fa-copy"></i></button>'
+                + '<button type="button" class="btn btn-sm btn-default addr-copy address-copy-btn" data-copy="' + escapeHtml(it.copy) + '" title="' + getTooltipText('word-copy') + '"><i class="fa fa-fw fa-copy"></i></button>'
                 + '</div>';
         }).join('');
         var $modal = $('#addressModal');
@@ -126,7 +126,7 @@
         var icon = success ? 'fa-check' : 'fa-times';
         clearTimeout($btn.data('reset-timer'));
         $btn.removeClass('btn-default btn-success btn-danger').addClass(addCls);
-        $btn.html('<i class="fa ' + icon + '"></i>');
+        $btn.html('<i class="fa fa-fw ' + icon + '"></i>');
         var t = setTimeout(function () {
             $btn.removeClass('btn-success btn-danger').addClass('btn-default');
             $btn.html(origHtml);
