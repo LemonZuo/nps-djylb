@@ -6,3 +6,12 @@ npc
 *.tar.gz
 *.json
 *.tmp
+.history/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+build/
+.env
+docker-context/
+bin-download/
