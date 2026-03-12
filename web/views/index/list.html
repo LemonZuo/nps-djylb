@@ -55,12 +55,11 @@
     #addressModal .modal-header { padding: 12px 20px; border-bottom: 1px solid #e7eaec; display: flex; align-items: center; }
     #addressModal .modal-title { margin: 0; font-size: 16px; font-weight: 600; }
     #addressModal .modal-header .close { margin: 0 0 0 16px; padding: 0; font-size: 22px; line-height: 1; }
-    #addressModal .modal-body { padding: 12px 20px; }
-    #addressModal .addr-row { display: flex; align-items: center; padding: 8px 0; gap: 10px; }
-    #addressModal .addr-row + .addr-row { border-top: 1px solid #f0f0f0; }
-    #addressModal .addr-label { flex: 0 0 auto; min-width: 64px; text-align: center; font-size: 11px; padding: 4px 8px; }
-    #addressModal .addr-code { flex: 0 1 auto; background: #f7f9fa; color: #2f4050; padding: 6px 10px; border-radius: 3px; word-break: break-all; font-family: Menlo, Consolas, monospace; font-size: 13px; border: 1px solid #e7eaec; }
-    #addressModal .addr-copy { flex: 0 0 auto; }
+    #addressModal .modal-body { padding: 12px 20px; display: grid; grid-template-columns: auto 1fr auto; column-gap: 10px; row-gap: 10px; align-items: center; }
+    #addressModal .addr-row { display: contents; }
+    #addressModal .addr-label { min-width: 64px; text-align: center; font-size: 11px; padding: 4px 8px; }
+    #addressModal .addr-code { background: #f7f9fa; color: #2f4050; padding: 6px 10px; border-radius: 3px; word-break: break-all; font-family: Menlo, Consolas, monospace; font-size: 13px; border: 1px solid #e7eaec; }
+    #addressModal .addr-copy { justify-self: end; }
 </style>
 
 <script>
