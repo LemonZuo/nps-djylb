@@ -171,6 +171,17 @@ $(document).ready(function () {
     display: flex;
     align-items: center;
     justify-content: center;
+    /* 跟随暗色/亮色主题，背景与边框与输入框对齐 */
+    background: var(--bg);
+    border-color: var(--border-color);
+    color: var(--color);
+}
+
+.password-input-group .input-group-append > .password-refresh-btn:hover,
+.password-input-group .input-group-append > .password-refresh-btn:focus {
+    background: var(--bg-mid);
+    border-color: var(--border-color);
+    color: var(--color);
 }
 
 .password-input-group .input-group-append > .password-refresh-btn .fa {
