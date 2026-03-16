@@ -1,6 +1,6 @@
 # NPS Enhanced
 
-A high-performance NAT traversal and reverse proxy server with Web UI.
+An enhanced and actively maintained NAT traversal and reverse proxy system with Web UI.
 
 [![GitHub Stars](https://img.shields.io/github/stars/djylb/nps.svg)](https://github.com/djylb/nps)
 [![GitHub Forks](https://img.shields.io/github/forks/djylb/nps.svg)](https://github.com/djylb/nps)
@@ -17,16 +17,32 @@ A high-performance NAT traversal and reverse proxy server with Web UI.
 
 NPS is a lightweight and efficient NAT traversal and reverse proxy system for exposing services behind NAT or firewalls. It supports multiple protocols such as TCP, UDP, HTTP, HTTPS, and SOCKS5, and provides a Web management interface for convenient deployment and monitoring.
 
-Since the original [NPS](https://github.com/ehang-io/nps) project has been inactive for a long time, this repository continues its development as an actively maintained community version with extensive refactoring, improved stability, and enhanced functionality.
+Based on the original [NPS](https://github.com/ehang-io/nps) project, **NPS Enhanced** has evolved into an actively maintained and extensively improved edition with continuous refactoring, better stability, and many practical enhancements for modern deployment scenarios.
 
 - **Before asking questions, please check:** [Documentation](https://d-jy.net/docs/nps/) and [Issues](https://github.com/djylb/nps/issues)
-- **Contributions welcome:** Submit PRs, provide feedback or suggestions, and help drive the project forward
+- **Contributions welcome:** Submit PRs, feedback, or suggestions to help improve the project
 - **Join the discussion:** Connect with other users in our [Telegram Group](https://t.me/npsdev)
 - **Android:** [djylb/npsclient](https://github.com/djylb/npsclient)
 - **OpenWrt:** [djylb/nps-openwrt](https://github.com/djylb/nps-openwrt)
 - **Mirror:** [djylb/nps-mirror](https://github.com/djylb/nps-mirror)
 
 ![NPS Web UI](https://cdn.jsdelivr.net/gh/djylb/nps/image/web.png)
+
+---
+
+## Why NPS Enhanced
+
+- **Easy to install**  
+  Provides simple deployment methods for Docker, Linux, and Windows, making setup and updates straightforward.
+
+- **Lightweight and efficient**  
+  Designed to stay lightweight while delivering strong performance for daily NAT traversal and reverse proxy usage.
+
+- **Easy to manage**  
+  Comes with a Web UI for configuration, monitoring, and routine management, reducing deployment and maintenance complexity.
+
+- **Powerful and flexible**  
+  Supports multiple proxy types, transport protocols, and practical features for a wide range of private-network access scenarios.
 
 ---
 
@@ -51,7 +67,7 @@ Since the original [NPS](https://github.com/ehang-io/nps) project has been inact
 
 ## Installation and Usage
 
-For more detailed configuration options, please refer to the [Documentation](https://d-jy.net/docs/nps/) (some sections may be outdated).
+For more detailed configuration options, please refer to the [Documentation](https://d-jy.net/docs/nps/).
 
 ### [Android](https://github.com/djylb/npsclient) | [OpenWrt](https://github.com/djylb/nps-openwrt)
 
@@ -145,4 +161,3 @@ npc update && npc restart
 > Here, `xxx:123` uses TCP, and `yyy:456` and `zzz:789` use TLS.
 
 > If you need to connect to older server versions, add `-proto_version=0` to the startup command.
-

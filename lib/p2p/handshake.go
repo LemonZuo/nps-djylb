@@ -178,7 +178,7 @@ func waitP2PHandshakeWithSeed(parentCtx context.Context, localConn net.PacketCon
 		select {
 		case <-parentCtx.Done():
 			logs.Error("[P2P] handshake fail role=%s local=%s err=%v", sendRole, localAddrStr, parentCtx.Err())
-			return "", localAddrStr, sendRole, errors.New("connect to the target failed, maybe the nat type is not support p2p")
+			return "", localAddrStr, sendRole, mapP2PContextError(parentCtx.Err())
 		default:
 		}
 
@@ -188,6 +188,10 @@ func waitP2PHandshakeWithSeed(parentCtx context.Context, localConn net.PacketCon
 		if rerr != nil {
 			var ne net.Error
 			if errors.As(rerr, &ne) && ne.Timeout() {
+				continue
+			}
+			if isIgnorableUDPIcmpError(rerr) {
+				logs.Debug("[P2P] ignore transient udp read error role=%s local=%s err=%v", sendRole, localAddrStr, rerr)
 				continue
 			}
 			logs.Error("[P2P] handshake read fail role=%s local=%s err=%v", sendRole, localAddrStr, rerr)

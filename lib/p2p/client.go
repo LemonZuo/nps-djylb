@@ -52,11 +52,13 @@ func HandleUDP(
 			logs.Error("[P2P] getRemoteAddressFromServer seq=%d err=%v", seq, err)
 			return
 		}
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	var peerExt1, peerExt2, peerExt3 string
 	var selfExt1, selfExt2, selfExt3 string
 	var peerLocal string
+	var altPortProbeSeen bool
 	serverPort := common.GetPortByAddr(rAddr)
 
 	buf := common.BufPoolUdp.Get()
@@ -102,12 +104,21 @@ func HandleUDP(
 				}
 				continue
 			}
+			if isIgnorableUDPIcmpError(rerr) {
+				logs.Debug("[P2P] ignore transient udp read error local=%s err=%v", localConn.LocalAddr().String(), rerr)
+				continue
+			}
 			err = rerr
 			logs.Error("[P2P] read server reply failed local=%s err=%v", localConn.LocalAddr().String(), err)
 			return
 		}
 
 		pkt := buf[:n]
+		if isP2PNATProbePacket(pkt) {
+			altPortProbeSeen = true
+			logs.Trace("[P2P] received nat-probe from=%s local=%s", fromAddr.String(), localConn.LocalAddr().String())
+			continue
+		}
 
 		// punched-in fast path
 		if bytes.Equal(pkt, bConnect) {
@@ -181,11 +192,15 @@ func HandleUDP(
 			selfExt1, selfExt2, selfExt3 = fillTripletByPortDiff(selfExt1, selfExt2, selfExt3)
 		}
 	}
+	portRestrictedByProbe := !altPortProbeSeen
+	if portRestrictedByProbe {
+		forceHard = true
+	}
 
-	logs.Debug("[P2P] collected peerExt=[%s,%s,%s] selfExt=[%s,%s,%s] peerLocal=%s punched=%v forceHard=%v",
+	logs.Debug("[P2P] collected peerExt=[%s,%s,%s] selfExt=[%s,%s,%s] peerLocal=%s punched=%v forceHard=%v altProbeSeen=%v",
 		peerExt1, peerExt2, peerExt3,
 		selfExt1, selfExt2, selfExt3,
-		peerLocal, punchedAddr != nil, forceHard)
+		peerLocal, punchedAddr != nil, forceHard, altPortProbeSeen)
 
 	winConn, remoteAddress, localAddress, role, err := sendP2PTestMsg(
 		parentCtx,
@@ -196,6 +211,7 @@ func HandleUDP(
 		selfExt1, selfExt2, selfExt3,
 		punchedAddr,
 		forceHard,
+		portRestrictedByProbe,
 	)
 	if err != nil {
 		logs.Error("[P2P] sendP2PTestMsg failed local=%s err=%v", localConn.LocalAddr().String(), err)
@@ -321,4 +337,12 @@ func parseP2PServerReply(raw string) (peerExt, peerLocal, mode, data, selfExt st
 		selfExt = common.ValidateAddr(parts[4])
 	}
 	return
+}
+
+func isP2PNATProbePacket(pkt []byte) bool {
+	parts := strings.Split(string(pkt), common.CONN_DATA_SEQ)
+	for len(parts) > 0 && parts[len(parts)-1] == "" {
+		parts = parts[:len(parts)-1]
+	}
+	return len(parts) > 0 && parts[0] == common.WORK_P2P_NAT_PROBE
 }
