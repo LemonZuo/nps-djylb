@@ -15,3 +15,15 @@ build/
 .env
 docker-context/
 bin-download/
+
+# Frontend (web/ui). The blanket *.json rule above exists for the conf/ JSON
+# database; the admin UI's manifests, tsconfigs and i18n catalogues are source
+# and must be tracked, so they are re-included here.
+web/ui/node_modules/
+web/ui/.vite/
+!web/ui/**/*.json
+
+# Built admin UI. web/dist is the go:embed target, produced by `pnpm build`;
+# only the placeholder is tracked so a clean checkout still compiles.
+web/dist/*
+!web/dist/.gitkeep
