@@ -7,11 +7,13 @@ import {
   ChevronDown,
   ChevronRight,
   Eraser,
+  Globe,
   KeyRound,
   Pencil,
   Plus,
   QrCode,
   Radio,
+  Repeat,
   Terminal,
   Trash2,
 } from "lucide-react"
@@ -612,12 +614,16 @@ export default function ClientsPage() {
                 )}
                 {visible("show") && (
                   <TableCell>
-                    <div className="flex gap-1.5">
-                      <Button variant="outline" size="xs" asChild>
-                        <Link to={`/tunnels?clientId=${c.id}`}>{t("word-tunnel")}</Link>
+                    <div className="flex gap-0.5">
+                      <Button variant="ghost" size="icon-xs" title={t("word-tunnel")} asChild>
+                        <Link to={`/tunnels?clientId=${c.id}`}>
+                          <Repeat className="size-3.5" />
+                        </Link>
                       </Button>
-                      <Button variant="outline" size="xs" asChild>
-                        <Link to={`/hosts?clientId=${c.id}`}>{t("word-host")}</Link>
+                      <Button variant="ghost" size="icon-xs" title={t("word-host")} asChild>
+                        <Link to={`/hosts?clientId=${c.id}`}>
+                          <Globe className="size-3.5" />
+                        </Link>
                       </Button>
                     </div>
                   </TableCell>
