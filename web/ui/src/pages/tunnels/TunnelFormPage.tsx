@@ -57,6 +57,21 @@ interface FormState {
   flowReset: boolean
 }
 
+// unixToLocal / localToUnixStr convert between the API's unix-seconds
+// time_limit and the datetime-local input value.
+function unixToLocal(secs: number): string {
+  if (!secs) return ""
+  const d = new Date(secs * 1000)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function localToUnixStr(v: string): string {
+  if (!v) return ""
+  const ms = new Date(v).getTime()
+  return Number.isNaN(ms) ? "" : String(Math.floor(ms / 1000))
+}
+
 const EMPTY: FormState = {
   mode: "tcp",
   clientId: null,
@@ -123,7 +138,7 @@ export default function TunnelFormPage() {
       destAclMode: String(existing.destAclMode),
       destAclRules: existing.destAclRules,
       flowLimit: existing.flow.flowLimit ? String(existing.flow.flowLimit) : "",
-      timeLimit: existing.flow.timeLimit ? String(existing.flow.timeLimit) : "",
+      timeLimit: unixToLocal(existing.flow.timeLimit),
       flowReset: false,
     })
   }, [existing])
@@ -134,7 +149,9 @@ export default function TunnelFormPage() {
   const fields = MODE_FIELDS[form.mode] ?? []
   const has = (f: string) => fields.includes(f)
 
-  const submit = async (e: React.FormEvent) => {
+  // saveAsNew is the old edit page's extra "add" button: POST the current
+  // form as a brand-new tunnel instead of updating in place.
+  const submit = async (e: React.FormEvent, saveAsNew = false) => {
     e.preventDefault()
     if (busy) return
     setBusy(true)
@@ -161,10 +178,10 @@ export default function TunnelFormPage() {
       if (isAdmin || perms?.flowLimit) {
         req.flowLimit = form.flowLimit === "" ? 0 : Number(form.flowLimit)
       }
-      if (isAdmin || perms?.timeLimit) req.timeLimit = form.timeLimit
+      if (isAdmin || perms?.timeLimit) req.timeLimit = localToUnixStr(form.timeLimit)
       if (isAdmin) req.flowReset = form.flowReset
 
-      if (id === null) {
+      if (id === null || saveAsNew) {
         await api.tunnels.create(req)
         toast.success(t("addsuccess"))
       } else {
@@ -187,7 +204,7 @@ export default function TunnelFormPage() {
         <CardContent className="grid gap-4 pt-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label>{t("word-scheme")}</Label>
-            <Select value={form.mode} onValueChange={(v) => set("mode", v)} disabled={id !== null}>
+            <Select value={form.mode} onValueChange={(v) => set("mode", v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -420,9 +437,9 @@ export default function TunnelFormPage() {
             <div className="flex flex-col gap-1.5">
               <Label>{t("word-timelimit")}</Label>
               <Input
+                type="datetime-local"
                 value={form.timeLimit}
                 onChange={(e) => set("timeLimit", e.target.value)}
-                placeholder={t("info-unrestricted")}
               />
               <p className="text-xs text-muted-foreground">{t("info-timelimit")}</p>
             </div>
@@ -444,6 +461,16 @@ export default function TunnelFormPage() {
         <Button type="submit" disabled={busy}>
           {busy ? t("processing") : t("word-save")}
         </Button>
+        {id !== null && (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy}
+            onClick={(e) => void submit(e, true)}
+          >
+            {t("word-add")}
+          </Button>
+        )}
         <Button type="button" variant="outline" onClick={() => navigate("/tunnels")}>
           {t("word-cancel")}
         </Button>
