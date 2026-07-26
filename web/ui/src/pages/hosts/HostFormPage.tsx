@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -79,16 +79,50 @@ const EMPTY: FormState = {
   flowReset: false,
 }
 
+// unixToLocal / localToUnixStr convert between the API's unix-seconds
+// time_limit and the datetime-local input value.
+function unixToLocal(secs: number): string {
+  if (!secs) return ""
+  const d = new Date(secs * 1000)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function localToUnixStr(v: string): string {
+  if (!v) return ""
+  const ms = new Date(v).getTime()
+  return Number.isNaN(ms) ? "" : String(Math.floor(ms / 1000))
+}
+
+// readDroppedPem lets a .pem/.crt/.key file be dragged onto the textarea, as
+// the old form allowed.
+function pemDropHandler(setValue: (v: string) => void) {
+  return (e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setValue(String(reader.result ?? ""))
+    reader.readAsText(file)
+  }
+}
+
 export default function HostFormPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
   const params = useParams()
+  const [searchParams] = useSearchParams()
   const id = params.id ? Number(params.id) : null
   const isAdmin = !!user?.isAdmin
   const perms = user?.permissions
 
-  const [form, setForm] = useState<FormState>(EMPTY)
+  // /hosts/new?clientId=N (from the client list's jump link) preselects the
+  // owner, like the old addhost?client_id= did.
+  const presetClientId = searchParams.get("clientId")
+  const [form, setForm] = useState<FormState>(() =>
+    id === null && presetClientId ? { ...EMPTY, clientId: Number(presetClientId) } : EMPTY,
+  )
   const [busy, setBusy] = useState(false)
 
   const { data: existing } = useQuery({
@@ -124,7 +158,7 @@ export default function HostFormPage() {
       certFile: existing.certFile,
       keyFile: existing.keyFile ?? "",
       flowLimit: existing.flow.flowLimit ? String(existing.flow.flowLimit) : "",
-      timeLimit: existing.flow.timeLimit ? String(existing.flow.timeLimit) : "",
+      timeLimit: unixToLocal(existing.flow.timeLimit),
       flowReset: false,
     })
   }, [existing])
@@ -132,7 +166,9 @@ export default function HostFormPage() {
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
 
-  const submit = async (e: React.FormEvent) => {
+  // The old edit page's third button: POST the form to addhost, cloning the
+  // record as a new host.
+  const submit = async (e: React.FormEvent, saveAsNew = false) => {
     e.preventDefault()
     if (busy) return
     setBusy(true)
@@ -167,10 +203,10 @@ export default function HostFormPage() {
       if (isAdmin || perms?.flowLimit) {
         req.flowLimit = form.flowLimit === "" ? 0 : Number(form.flowLimit)
       }
-      if (isAdmin || perms?.timeLimit) req.timeLimit = form.timeLimit
+      if (isAdmin || perms?.timeLimit) req.timeLimit = localToUnixStr(form.timeLimit)
       if (isAdmin) req.flowReset = form.flowReset
 
-      if (id === null) {
+      if (id === null || saveAsNew) {
         await api.hosts.create(req)
         toast.success(t("addsuccess"))
       } else {
@@ -184,6 +220,9 @@ export default function HostFormPage() {
       setBusy(false)
     }
   }
+
+  const httpsEnabled = form.scheme !== "http"
+  const showTls = httpsEnabled && !form.httpsJustProxy
 
   return (
     <form onSubmit={submit} className="mx-auto flex w-full max-w-3xl flex-col gap-4">
@@ -346,28 +385,38 @@ export default function HostFormPage() {
           <CardTitle className="text-base">HTTPS</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <ToggleRow
-            label={t("word-httpsjustproxytitle")}
-            hint={t("info-httpsjustproxy")}
-            checked={form.httpsJustProxy}
-            onChange={(v) => set("httpsJustProxy", v)}
-          />
-          <ToggleRow
-            label={t("word-tlsoffloadtitle")}
-            hint={t("info-tlsoffload")}
-            checked={form.tlsOffload}
-            onChange={(v) => set("tlsOffload", v)}
-          />
-          <ToggleRow
-            label={t("word-autossl")}
-            checked={form.autoSsl}
-            onChange={(v) => set("autoSsl", v)}
-          />
-          <ToggleRow
-            label={t("word-autohttpstitle")}
-            checked={form.autoHttps}
-            onChange={(v) => set("autoHttps", v)}
-          />
+          {/* The old form hid the HTTPS controls for scheme=http, and the TLS
+              material additionally when https_just_proxy is on. */}
+          {httpsEnabled && (
+            <ToggleRow
+              label={t("word-httpsjustproxytitle")}
+              hint={t("info-httpsjustproxy")}
+              checked={form.httpsJustProxy}
+              onChange={(v) => set("httpsJustProxy", v)}
+            />
+          )}
+          {showTls && (
+            <ToggleRow
+              label={t("word-tlsoffloadtitle")}
+              hint={t("info-tlsoffload")}
+              checked={form.tlsOffload}
+              onChange={(v) => set("tlsOffload", v)}
+            />
+          )}
+          {showTls && (
+            <ToggleRow
+              label={t("word-autossl")}
+              checked={form.autoSsl}
+              onChange={(v) => set("autoSsl", v)}
+            />
+          )}
+          {httpsEnabled && (
+            <ToggleRow
+              label={t("word-autohttpstitle")}
+              checked={form.autoHttps}
+              onChange={(v) => set("autoHttps", v)}
+            />
+          )}
           <ToggleRow
             label={t("word-autocorstitle")}
             checked={form.autoCors}
@@ -378,26 +427,34 @@ export default function HostFormPage() {
             checked={form.compatMode}
             onChange={(v) => set("compatMode", v)}
           />
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <Label>{t("word-httpscert")}</Label>
-            <Textarea
-              value={form.certFile}
-              onChange={(e) => set("certFile", e.target.value)}
-              rows={3}
-              className="font-mono text-xs"
-              placeholder={t("info-pemtext")}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <Label>{t("word-httpskey")}</Label>
-            <Textarea
-              value={form.keyFile}
-              onChange={(e) => set("keyFile", e.target.value)}
-              rows={3}
-              className="font-mono text-xs"
-              placeholder={existing && !isAdmin ? "••••••" : t("info-pemkey")}
-            />
-          </div>
+          {showTls && (
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label>{t("word-httpscert")}</Label>
+              <Textarea
+                value={form.certFile}
+                onChange={(e) => set("certFile", e.target.value)}
+                onDrop={pemDropHandler((v) => set("certFile", v))}
+                onDragOver={(e) => e.preventDefault()}
+                rows={3}
+                className="font-mono text-xs"
+                placeholder={t("info-pemtext")}
+              />
+            </div>
+          )}
+          {showTls && (
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label>{t("word-httpskey")}</Label>
+              <Textarea
+                value={form.keyFile}
+                onChange={(e) => set("keyFile", e.target.value)}
+                onDrop={pemDropHandler((v) => set("keyFile", v))}
+                onDragOver={(e) => e.preventDefault()}
+                rows={3}
+                className="font-mono text-xs"
+                placeholder={existing && !isAdmin ? "••••••" : t("info-pemkey")}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -419,9 +476,9 @@ export default function HostFormPage() {
               <div className="flex flex-col gap-1.5">
                 <Label>{t("word-timelimit")}</Label>
                 <Input
+                  type="datetime-local"
                   value={form.timeLimit}
                   onChange={(e) => set("timeLimit", e.target.value)}
-                  placeholder={t("info-unrestricted")}
                 />
                 <p className="text-xs text-muted-foreground">{t("info-timelimit")}</p>
               </div>
@@ -443,6 +500,16 @@ export default function HostFormPage() {
         <Button type="submit" disabled={busy}>
           {busy ? t("processing") : t("word-save")}
         </Button>
+        {id !== null && (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy}
+            onClick={(e) => void submit(e, true)}
+          >
+            {t("word-add")}
+          </Button>
+        )}
         <Button type="button" variant="outline" onClick={() => navigate("/hosts")}>
           {t("word-cancel")}
         </Button>
