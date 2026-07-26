@@ -1,21 +1,9 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery } from "@tanstack/react-query"
-import type { ECharts } from "echarts"
+import type { ECharts, EChartsOption } from "echarts"
 import { useTheme } from "next-themes"
-import {
-  Activity,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  Clock,
-  Cpu,
-  Globe,
-  HardDrive,
-  MemoryStick,
-  MonitorSmartphone,
-  Waypoints,
-  Wifi,
-} from "lucide-react"
+import { Activity, Clock, MonitorSmartphone, Wifi } from "lucide-react"
 import { api } from "@/api/endpoints"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatBytes, formatRate } from "@/lib/format"
@@ -24,12 +12,10 @@ function StatCard({
   icon: Icon,
   label,
   value,
-  sub,
 }: {
-  icon: typeof Cpu
+  icon: typeof Clock
   label: string
   value: React.ReactNode
-  sub?: React.ReactNode
 }) {
   return (
     <Card>
@@ -39,105 +25,149 @@ function StatCard({
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-semibold">{value}</div>
-        {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
       </CardContent>
     </Card>
   )
 }
 
-// The history endpoint returns tool.StatusSnapshot(): one map per sample with
-// time, cpu, load1/5/15, swap_mem, virtual_mem, tcp/udp CurrEstab, io_send/recv.
-function HistoryChart() {
-  const { t } = useTranslation()
+// echarts is ~1 MB minified; loading it on demand keeps it out of the main
+// chunk that the login page pays for. The instance survives data refreshes
+// (setOption only) so the 5-second dashboard poll doesn't flicker the charts.
+function EChart({ option, className }: { option: EChartsOption; className?: string }) {
   const { resolvedTheme } = useTheme()
   const ref = useRef<HTMLDivElement>(null)
-  const { data } = useQuery({
-    queryKey: ["dashboard-history"],
-    queryFn: api.dashboard.history,
-    refetchInterval: 60_000,
-  })
+  const chartRef = useRef<ECharts | null>(null)
+  const [ready, setReady] = useState(0)
 
   useEffect(() => {
-    if (!ref.current || !data || data.rows.length === 0) return
-    // echarts is ~1 MB minified; loading it on demand keeps it out of the
-    // main chunk that the login page pays for.
-    let chart: ECharts | null = null
+    if (!ref.current) return
     let disposed = false
     const el = ref.current
-    const rows = data.rows
-    const times = rows.map((r) => String(r.time ?? ""))
-    const num = (r: Record<string, unknown>, k: string) => {
-      const v = r[k]
-      return typeof v === "number" ? v : 0
-    }
     void import("echarts").then((echarts) => {
       if (disposed) return
-      chart = echarts.init(el, resolvedTheme === "dark" ? "dark" : undefined)
-      chart.setOption({
-      backgroundColor: "transparent",
-      tooltip: { trigger: "axis" },
-      legend: {
-        data: ["CPU %", t("word-memory") + " %", "TCP", t("word-inbandwidth"), t("word-outbandwidth")],
-      },
-      grid: { left: 48, right: 48, top: 40, bottom: 24 },
-      xAxis: { type: "category", data: times },
-      yAxis: [
-        { type: "value", max: 100, position: "left" },
-        {
-          type: "value",
-          position: "right",
-          axisLabel: { formatter: (v: number) => formatBytes(v) },
-        },
-      ],
-      series: [
-        { name: "CPU %", type: "line", smooth: true, showSymbol: false, data: rows.map((r) => num(r, "cpu")) },
-        {
-          name: t("word-memory") + " %",
-          type: "line",
-          smooth: true,
-          showSymbol: false,
-          data: rows.map((r) => num(r, "virtual_mem")),
-        },
-        { name: "TCP", type: "line", smooth: true, showSymbol: false, data: rows.map((r) => num(r, "tcp")) },
-        {
-          name: t("word-inbandwidth"),
-          type: "line",
-          smooth: true,
-          showSymbol: false,
-          yAxisIndex: 1,
-          data: rows.map((r) => num(r, "io_recv")),
-        },
-        {
-          name: t("word-outbandwidth"),
-          type: "line",
-          smooth: true,
-          showSymbol: false,
-          yAxisIndex: 1,
-          data: rows.map((r) => num(r, "io_send")),
-        },
-        ],
-      })
+      chartRef.current = echarts.init(el, resolvedTheme === "dark" ? "dark" : undefined)
+      setReady((n) => n + 1)
     })
-    const onResize = () => chart?.resize()
+    const onResize = () => chartRef.current?.resize()
     window.addEventListener("resize", onResize)
     return () => {
       disposed = true
       window.removeEventListener("resize", onResize)
-      chart?.dispose()
+      chartRef.current?.dispose()
+      chartRef.current = null
     }
-  }, [data, resolvedTheme, t])
+  }, [resolvedTheme])
 
-  if (!data || data.rows.length === 0) return null
+  useEffect(() => {
+    chartRef.current?.setOption({ backgroundColor: "transparent", ...option }, true)
+  }, [option, ready])
+
+  return <div ref={ref} className={className ?? "h-72 w-full"} />
+}
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">{t("ui-flow-history")}</CardTitle>
+        <CardTitle className="text-base">{title}</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div ref={ref} className="h-80 w-full" />
-      </CardContent>
+      <CardContent>{children}</CardContent>
     </Card>
   )
+}
+
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b py-2 text-sm last:border-b-0">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className="truncate text-right font-medium">{value}</span>
+    </div>
+  )
+}
+
+// CPU / memory rows in the system card, with the old template's progress bar.
+function MeterRow({ label, percent }: { label: string; percent: number }) {
+  const pct = Math.max(0, Math.min(100, percent))
+  return (
+    <div className="border-b py-2 text-sm">
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-medium">{pct}%</span>
+      </div>
+      <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted">
+        <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
+
+// GetDashboardData's "load" is gopsutil AvgStat serialized as JSON — the old
+// template did JSON.parse and printed the three values in order.
+function formatLoad(load: unknown): string {
+  if (typeof load !== "string" || load === "") return "-"
+  try {
+    const parsed: unknown = JSON.parse(load)
+    if (parsed && typeof parsed === "object") {
+      return Object.values(parsed)
+        .map((v) => (typeof v === "number" ? v.toFixed(2) : String(v)))
+        .join("  ")
+    }
+  } catch {
+    // not JSON — show as-is
+  }
+  return load
+}
+
+const LINE_GRID = { left: "3%", right: "4%", top: 32, bottom: "3%", containLabel: true }
+
+function lineOption(
+  times: string[],
+  series: { name: string; data: number[] }[],
+  yFormatter?: (v: number) => string,
+): EChartsOption {
+  return {
+    tooltip: {
+      trigger: "axis",
+      valueFormatter: yFormatter ? (v) => yFormatter(Number(v)) : undefined,
+    },
+    legend: series.length > 1 ? { data: series.map((s) => s.name) } : undefined,
+    grid: LINE_GRID,
+    xAxis: { type: "category", boundaryGap: false, data: times },
+    yAxis: {
+      type: "value",
+      axisLabel: yFormatter ? { formatter: yFormatter } : undefined,
+    },
+    series: series.map((s) => ({
+      name: s.name,
+      type: "line",
+      smooth: true,
+      showSymbol: false,
+      data: s.data,
+    })),
+  }
+}
+
+function pieOption(
+  name: string,
+  data: { name: string; value: number }[],
+  valueFormatter?: (v: number) => string,
+): EChartsOption {
+  return {
+    tooltip: {
+      trigger: "item",
+      valueFormatter: valueFormatter ? (v) => valueFormatter(Number(v)) : undefined,
+    },
+    legend: { orient: "vertical", left: "left" },
+    series: [
+      {
+        name,
+        type: "pie",
+        radius: "55%",
+        center: ["50%", "56%"],
+        data,
+      },
+    ],
+  }
 }
 
 export default function DashboardPage() {
@@ -147,103 +177,172 @@ export default function DashboardPage() {
     queryFn: () => api.dashboard.data(),
     refetchInterval: 5_000,
   })
+  const { data: bootstrap } = useQuery({ queryKey: ["bootstrap"], queryFn: api.meta.bootstrap })
+  // History sampling only runs with system_info_display on; an empty list
+  // means the line charts should not render at all.
+  const { data: history } = useQuery({
+    queryKey: ["dashboard-history"],
+    queryFn: api.dashboard.history,
+    refetchInterval: 60_000,
+  })
 
   const d = data ?? {}
   const n = (v: unknown) => (typeof v === "number" ? v : 0)
+  const s = (v: unknown) => (v === undefined || v === null || v === "" ? "-" : String(v))
+
+  // "TCP:8883 KCP:8883 TLS:8884 WS:8885 WSS:8886 Path:/ws", like the old
+  // template built from tcp_p/kcp_p/... — here from the bootstrap endpoints.
+  const bridgeMode = useMemo(() => {
+    if (!bootstrap || bootstrap.endpoints.length === 0) return "-"
+    const parts = bootstrap.endpoints.map((e) => `${e.type.toUpperCase()}:${e.port}`)
+    const path = bootstrap.endpoints.find((e) => e.path)?.path
+    if (path) parts.push(`Path:${path}`)
+    return parts.join(" ")
+  }, [bootstrap])
+
+  const rows = useMemo(() => history?.rows ?? [], [history])
+  const num = (r: Record<string, unknown>, k: string) => {
+    const v = r[k]
+    return typeof v === "number" ? v : 0
+  }
+  const times = useMemo(() => rows.map((r) => String(r.time ?? "")), [rows])
+  const col = (k: string) => rows.map((r) => num(r, k))
+  // tcp/udp CurrEstab come from ProtoCounters, which some platforms (e.g.
+  // Darwin) don't provide — hide the connections chart instead of drawing 0.
+  const hasConnHistory = rows.some((r) => typeof r.tcp === "number" || typeof r.udp === "number")
+
+  const flowPie = pieOption(
+    t("word-trafficstatistics"),
+    [
+      { name: t("word-inletflow"), value: n(d.inletFlowCount) },
+      { name: t("word-exportflow"), value: n(d.exportFlowCount) },
+    ],
+    formatBytes,
+  )
+  const typePie = pieOption(t("word-type"), [
+    { name: t("scheme-host"), value: n(d.hostCount) },
+    { name: t("scheme-tcp"), value: n(d.tcpC) },
+    { name: t("scheme-udp"), value: n(d.udpCount) },
+    { name: t("scheme-httpproxy"), value: n(d.httpProxyCount) },
+    { name: t("scheme-socks5"), value: n(d.socks5Count) },
+    { name: t("scheme-secret"), value: n(d.secretCount) },
+    { name: t("scheme-p2p"), value: n(d.p2pCount) },
+  ])
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">{t("word-dashboard")}</h1>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          icon={MonitorSmartphone}
-          label={t("word-totalclients")}
-          value={n(d.clientCount)}
-          sub={`${t("word-onlineclients")}: ${n(d.clientOnlineCount)}`}
-        />
-        <StatCard
-          icon={Waypoints}
-          label={t("word-tunnel")}
-          value={
-            n(d.tcpC) + n(d.udpCount) + n(d.socks5Count) + n(d.httpProxyCount) + n(d.secretCount) + n(d.p2pCount)
-          }
-          sub={`TCP ${n(d.tcpC)} · UDP ${n(d.udpCount)} · S5 ${n(d.socks5Count)} · HTTP ${n(d.httpProxyCount)} · ${t("scheme-secret")} ${n(d.secretCount)} · P2P ${n(d.p2pCount)}`}
-        />
-        <StatCard icon={Globe} label={t("page-hostlist")} value={n(d.hostCount)} />
-        <StatCard
-          icon={Activity}
-          label={t("word-curconnections")}
-          value={n(d.tcpCount)}
-          sub={`${t("word-tcpconnections_established")}: ${n(d.tcp)}`}
-        />
-        <StatCard icon={Cpu} label={t("word-cpu")} value={`${n(d.cpu)}%`} sub={`${t("word-load")}: ${String(d.load ?? "-")}`} />
-        <StatCard
-          icon={MemoryStick}
-          label={t("word-memory")}
-          value={`${n(d.virtual_mem)}%`}
-          sub={`${t("word-swapmemory")}: ${n(d.swap_mem)}%`}
-        />
-        <StatCard
-          icon={Wifi}
-          label={t("word-bandwidth")}
-          value={
-            <span className="flex items-center gap-2 text-lg">
-              <ArrowDownToLine className="size-4" />
-              {formatRate(n(d.io_recv))}
-              <ArrowUpFromLine className="size-4" />
-              {formatRate(n(d.io_send))}
-            </span>
-          }
-        />
-        <StatCard
-          icon={HardDrive}
-          label={t("word-trafficstatistics")}
-          value={
-            <span className="flex items-center gap-2 text-lg">
-              <ArrowDownToLine className="size-4" />
-              {formatBytes(n(d.inletFlowCount))}
-              <ArrowUpFromLine className="size-4" />
-              {formatBytes(n(d.exportFlowCount))}
-            </span>
-          }
-        />
+        <StatCard icon={MonitorSmartphone} label={t("word-totalclients")} value={n(d.clientCount)} />
+        <StatCard icon={Wifi} label={t("word-onlineclients")} value={n(d.clientOnlineCount)} />
+        <StatCard icon={Activity} label={t("word-tcpconnections")} value={n(d.tcpCount)} />
+        <StatCard icon={Clock} label={t("word-uptime")} value={s(d.upTime)} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="size-4" />
-              {t("word-systeminformation")}
-            </CardTitle>
+            <CardTitle className="text-base">{t("word-configurationinformation")}</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2 text-sm">
-            <InfoRow label={t("word-serverversion")} value={String(d.version ?? "-")} />
-            <InfoRow label={t("word-minsupportversion")} value={String(d.minVersion ?? "-")} />
-            <InfoRow label={t("word-uptime")} value={String(d.upTime ?? "-")} />
-            <InfoRow label={t("word-type")} value={String(d.bridgeType ?? "-")} />
-            <InfoRow label={t("word-httpport")} value={String(d.httpProxyPort ?? "-")} />
-            <InfoRow label={t("word-httpsport")} value={String(d.httpsProxyPort ?? "-")} />
-            <InfoRow label={t("word-p2paddr")} value={String(d.p2pAddr ?? "-")} />
-            <InfoRow label={t("word-serveripv4")} value={String(d.serverIpv4 ?? "-")} />
-            <InfoRow label={t("word-loglevel")} value={String(d.logLevel ?? "-")} />
+          <CardContent>
+            <InfoRow label={t("word-bridgingmode")} value={bridgeMode} />
+            <InfoRow
+              label={t("word-httpports")}
+              value={`${s(d.httpProxyPort)} / ${s(d.httpsProxyPort)}`}
+            />
+            <InfoRow
+              label={t("word-iprestriction")}
+              value={d.ipLimit === "true" ? t("word-true") : t("word-false")}
+            />
+            <InfoRow label={t("word-trafficdatapersistence")} value={s(d.flowStoreInterval)} />
+            <InfoRow label={t("word-loglevel")} value={s(d.logLevel)} />
+            <InfoRow label={t("word-p2paddr")} value={s(d.p2pAddr)} />
+            <InfoRow
+              label={t("word-serverip")}
+              value={`${s(d.p2pIp)} | ${s(d.serverIpv4)} | ${s(d.serverIpv6)}`}
+            />
+            <InfoRow label={t("word-serverversion")} value={`${s(d.version)} (${s(d.minVersion)})`} />
           </CardContent>
         </Card>
 
-        <div className="lg:col-span-2">
-          <HistoryChart />
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("word-systeminformation")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MeterRow label={t("word-cpu")} percent={n(d.cpu)} />
+            <MeterRow label={t("word-memory")} percent={n(d.virtual_mem)} />
+            <InfoRow label={t("word-load")} value={formatLoad(d.load)} />
+            <InfoRow label={t("word-tcpconnections_established")} value={n(d.tcp)} />
+            <InfoRow label={t("word-udpconnections_established")} value={n(d.udp)} />
+            <InfoRow label={t("word-outbandwidth")} value={formatRate(n(d.io_send))} />
+            <InfoRow label={t("word-inbandwidth")} value={formatRate(n(d.io_recv))} />
+          </CardContent>
+        </Card>
       </div>
-    </div>
-  )
-}
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="truncate font-mono text-xs">{value}</span>
+      {rows.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ChartCard title={t("word-load")}>
+            <EChart
+              option={lineOption(times, [
+                { name: "load1", data: col("load1") },
+                { name: "load5", data: col("load5") },
+                { name: "load15", data: col("load15") },
+              ])}
+            />
+          </ChartCard>
+          <ChartCard title={t("word-cpu")}>
+            <EChart
+              option={lineOption(times, [{ name: t("word-cpu"), data: col("cpu") }], (v) => `${v} %`)}
+            />
+          </ChartCard>
+          <ChartCard title={t("word-memory")}>
+            <EChart
+              option={lineOption(
+                times,
+                [
+                  { name: t("word-memory"), data: col("virtual_mem") },
+                  { name: t("word-swapmemory"), data: col("swap_mem") },
+                ],
+                (v) => `${v} %`,
+              )}
+            />
+          </ChartCard>
+          {hasConnHistory && (
+            <ChartCard title={t("word-connections_established")}>
+              <EChart
+                option={lineOption(times, [
+                  { name: "TCP", data: col("tcp") },
+                  { name: "UDP", data: col("udp") },
+                ])}
+              />
+            </ChartCard>
+          )}
+          <ChartCard title={t("word-bandwidth")}>
+            <EChart
+              option={lineOption(
+                times,
+                [
+                  { name: t("word-inbandwidth"), data: col("io_recv") },
+                  { name: t("word-outbandwidth"), data: col("io_send") },
+                ],
+                (v) => formatRate(v),
+              )}
+            />
+          </ChartCard>
+        </div>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ChartCard title={t("word-trafficstatistics")}>
+          <EChart option={flowPie} />
+        </ChartCard>
+        <ChartCard title={t("word-type")}>
+          <EChart option={typePie} />
+        </ChartCard>
+      </div>
     </div>
   )
 }

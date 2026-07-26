@@ -226,15 +226,35 @@ export interface DashboardData {
   load?: string
   swap_mem?: number
   virtual_mem?: number
+  tcp?: number
+  udp?: number
   io_send?: number
   io_recv?: number
   clientCount?: number
   clientOnlineCount?: number
   hostCount?: number
   taskCount?: number
+  tcpC?: number
+  udpCount?: number
+  httpProxyCount?: number
+  socks5Count?: number
+  secretCount?: number
+  p2pCount?: number
+  inletFlowCount?: number
+  exportFlowCount?: number
   bridgeType?: string
   bridgePort?: number | string
+  httpProxyPort?: string
+  httpsProxyPort?: string
+  ipLimit?: string
+  flowStoreInterval?: string
+  logLevel?: string
+  p2pAddr?: string
+  p2pIp?: string
+  serverIpv4?: string
+  serverIpv6?: string
   version?: string
+  minVersion?: string
   [key: string]: unknown
 }
 
