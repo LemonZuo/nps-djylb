@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next"
+import { Tip } from "@/components/ui/tooltip"
 import { copyText } from "@/lib/format"
 
 // One key: value pair in an expanded detail row, matching the old
@@ -23,21 +24,20 @@ export function DetailItem({
     <span className="mr-6 inline-flex items-baseline gap-1 text-xs leading-6">
       <b>{label}</b>:
       {copyable !== undefined ? (
-        <span
-          className="cursor-pointer font-mono hover:underline"
-          title={t("word-copy")}
-          onClick={() => void copyText(copyable)}
-        >
-          {value}
-        </span>
+        <Tip content={t("word-copy")}>
+          <span
+            className="cursor-pointer font-mono hover:underline"
+            onClick={() => void copyText(copyable)}
+          >
+            {value}
+          </span>
+        </Tip>
       ) : onClear ? (
-        <span
-          className="cursor-pointer hover:underline"
-          title={t("word-clear")}
-          onClick={onClear}
-        >
-          {value}
-        </span>
+        <Tip content={t("word-clear")}>
+          <span className="cursor-pointer hover:underline" onClick={onClear}>
+            {value}
+          </span>
+        </Tip>
       ) : onToggle ? (
         <span className="cursor-pointer text-primary hover:underline" onClick={onToggle}>
           {value}

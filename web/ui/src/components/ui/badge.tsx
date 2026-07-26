@@ -2,6 +2,7 @@ import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Slot } from "radix-ui"
 
+import { Tip } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
@@ -27,22 +28,26 @@ const badgeVariants = cva(
   }
 )
 
+// title renders as a styled Tooltip instead of the native browser one.
 function Badge({
   className,
   variant = "default",
   asChild = false,
+  title,
   ...props
 }: React.ComponentProps<"span"> &
   VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot.Root : "span"
 
   return (
-    <Comp
-      data-slot="badge"
-      data-variant={variant}
-      className={cn(badgeVariants({ variant }), className)}
-      {...props}
-    />
+    <Tip content={title}>
+      <Comp
+        data-slot="badge"
+        data-variant={variant}
+        className={cn(badgeVariants({ variant }), className)}
+        {...props}
+      />
+    </Tip>
   )
 }
 

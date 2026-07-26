@@ -31,6 +31,7 @@ import { DetailItem, formatTimeLimit, formatTimeRemain } from "@/components/deta
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { TableCell, TableRow } from "@/components/ui/table"
+import { Tip } from "@/components/ui/tooltip"
 import { copyText, formatBytes } from "@/lib/format"
 
 // The old index/hlist.html column matrix, defaults included. The boolean
@@ -300,24 +301,26 @@ function HostDetail({
         <div className="mt-2 flex flex-col gap-2">
           <div>
             <b>{t("word-httpscert")}</b>:
-            <pre
-              className="mt-1 max-h-16 cursor-pointer overflow-auto rounded border bg-background p-1.5 font-mono text-xs whitespace-nowrap"
-              title={t("word-copy")}
-              onClick={() => void copyText(h.certFile)}
-            >
-              {h.certFile}
-            </pre>
+            <Tip content={t("word-copy")}>
+              <pre
+                className="mt-1 max-h-16 cursor-pointer overflow-auto rounded border bg-background p-1.5 font-mono text-xs whitespace-nowrap"
+                onClick={() => void copyText(h.certFile)}
+              >
+                {h.certFile}
+              </pre>
+            </Tip>
           </div>
           {h.keyFile !== undefined && (
             <div>
               <b>{t("word-httpskey")}</b>:
-              <pre
-                className="mt-1 max-h-16 cursor-pointer overflow-auto rounded border bg-background p-1.5 font-mono text-xs whitespace-nowrap"
-                title={t("word-copy")}
-                onClick={() => void copyText(h.keyFile ?? "")}
-              >
-                {h.keyFile}
-              </pre>
+              <Tip content={t("word-copy")}>
+                <pre
+                  className="mt-1 max-h-16 cursor-pointer overflow-auto rounded border bg-background p-1.5 font-mono text-xs whitespace-nowrap"
+                  onClick={() => void copyText(h.keyFile ?? "")}
+                >
+                  {h.keyFile}
+                </pre>
+              </Tip>
             </div>
           )}
         </div>
@@ -432,13 +435,14 @@ export default function HostsPage() {
             enabled = true,
           ): React.ReactNode =>
             isAdmin && enabled ? (
-              <span
-                className="cursor-pointer hover:underline"
-                title={t("word-clear")}
-                onClick={() => void clearCell(row.id, mode)}
-              >
-                {text}
-              </span>
+              <Tip content={t("word-clear")}>
+                <span
+                  className="cursor-pointer hover:underline"
+                  onClick={() => void clearCell(row.id, mode)}
+                >
+                  {text}
+                </span>
+              </Tip>
             ) : (
               text
             )

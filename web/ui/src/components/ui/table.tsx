@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import { Tip } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
@@ -78,16 +79,20 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   )
 }
 
-function TableCell({ className, ...props }: React.ComponentProps<"td">) {
+// title renders as a styled Tooltip instead of the native browser one (the
+// list pages use it for the click-to-copy hint on cells).
+function TableCell({ className, title, ...props }: React.ComponentProps<"td">) {
   return (
-    <td
-      data-slot="table-cell"
-      className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
-        className
-      )}
-      {...props}
-    />
+    <Tip content={title}>
+      <td
+        data-slot="table-cell"
+        className={cn(
+          "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+          className
+        )}
+        {...props}
+      />
+    </Tip>
   )
 }
 

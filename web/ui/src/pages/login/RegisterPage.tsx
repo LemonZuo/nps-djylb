@@ -9,6 +9,7 @@ import { encryptLoginPayload } from "@/auth/crypto"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Tip } from "@/components/ui/tooltip"
 import { Label } from "@/components/ui/label"
 import { LanguageThemeBar, LoginFooter } from "./LanguageThemeBar"
 
@@ -140,13 +141,14 @@ export default function RegisterPage() {
                     autoComplete="off"
                     required
                   />
-                  <img
-                    src={captcha.image}
-                    alt="captcha"
-                    className="h-9 cursor-pointer rounded border"
-                    title={t("word-refresh")}
-                    onClick={() => void refreshCaptcha()}
-                  />
+                  <Tip content={t("word-refresh")}>
+                    <img
+                      src={captcha.image}
+                      alt="captcha"
+                      className="h-9 cursor-pointer rounded border"
+                      onClick={() => void refreshCaptcha()}
+                    />
+                  </Tip>
                 </div>
               </div>
             )}

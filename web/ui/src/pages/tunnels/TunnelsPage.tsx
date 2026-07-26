@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { TableCell, TableRow } from "@/components/ui/table"
+import { Tip } from "@/components/ui/tooltip"
 import { copyText, formatBytes } from "@/lib/format"
 
 export const TUNNEL_MODES = [
@@ -419,13 +420,14 @@ function TunnelDetail({
           {commands.map((c) => (
             <div key={c.key}>
               <b>{t(c.key)}</b>:
-              <code
-                className="mt-1 block cursor-pointer rounded bg-background p-1.5 font-mono text-xs break-all hover:bg-muted"
-                title={t("word-copy")}
-                onClick={() => void copyText(c.cmd)}
-              >
-                {c.cmd}
-              </code>
+              <Tip content={t("word-copy")}>
+                <code
+                  className="mt-1 block cursor-pointer rounded bg-background p-1.5 font-mono text-xs break-all hover:bg-muted"
+                  onClick={() => void copyText(c.cmd)}
+                >
+                  {c.cmd}
+                </code>
+              </Tip>
             </div>
           ))}
         </div>
@@ -572,13 +574,14 @@ export default function TunnelsPage() {
             enabled = true,
           ): React.ReactNode =>
             isAdmin && enabled ? (
-              <span
-                className="cursor-pointer hover:underline"
-                title={t("word-clear")}
-                onClick={() => void clearCell(row.id, m)}
-              >
-                {text}
-              </span>
+              <Tip content={t("word-clear")}>
+                <span
+                  className="cursor-pointer hover:underline"
+                  onClick={() => void clearCell(row.id, m)}
+                >
+                  {text}
+                </span>
+              </Tip>
             ) : (
               text
             )

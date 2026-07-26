@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { TableCell, TableRow } from "@/components/ui/table"
+import { Tip } from "@/components/ui/tooltip"
 import { copyText, formatBytes, formatRate } from "@/lib/format"
 
 // The old client/list.html column matrix, defaults included. Field names in
@@ -105,13 +106,14 @@ function CommandDialog({
           {commands.map((c) => (
             <div key={c.label} className="flex flex-col gap-1">
               <span className="text-sm font-medium">{c.label}</span>
-              <code
-                className="cursor-pointer rounded bg-muted p-2 font-mono text-xs break-all hover:bg-muted/70"
-                title={t("word-copy")}
-                onClick={() => void copyText(c.cmd)}
-              >
-                {c.cmd}
-              </code>
+              <Tip content={t("word-copy")}>
+                <code
+                  className="cursor-pointer rounded bg-muted p-2 font-mono text-xs break-all hover:bg-muted/70"
+                  onClick={() => void copyText(c.cmd)}
+                >
+                  {c.cmd}
+                </code>
+              </Tip>
             </div>
           ))}
         </div>
@@ -388,13 +390,14 @@ export default function ClientsPage() {
             enabled = true,
           ): React.ReactNode =>
             isAdmin && enabled ? (
-              <span
-                className="cursor-pointer hover:underline"
-                title={t("word-clear")}
-                onClick={() => void clearCell(c.id, mode)}
-              >
-                {text}
-              </span>
+              <Tip content={t("word-clear")}>
+                <span
+                  className="cursor-pointer hover:underline"
+                  onClick={() => void clearCell(c.id, mode)}
+                >
+                  {text}
+                </span>
+              </Tip>
             ) : (
               text
             )

@@ -52,4 +52,33 @@ function TooltipContent({
   )
 }
 
-export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger }
+// Tip replaces the native title attribute with a styled tooltip. No content
+// means no tooltip, mirroring title={undefined}. Extra props must be forwarded
+// to the child: when a parent Slot (e.g. DropdownMenuTrigger asChild) wraps a
+// titled Button, its injected trigger props land on Tip, not the Button.
+function Tip({
+  content,
+  side,
+  children,
+  ...rest
+}: Omit<React.ComponentProps<typeof TooltipTrigger>, "children" | "content"> & {
+  content?: React.ReactNode
+  side?: React.ComponentProps<typeof TooltipContent>["side"]
+  children: React.ReactElement<Record<string, unknown>>
+}) {
+  if (content === undefined || content === null || content === "") {
+    return Object.keys(rest).length > 0
+      ? React.cloneElement(children, rest as Record<string, unknown>)
+      : children
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild {...rest}>
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side={side}>{content}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+export { Tip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger }

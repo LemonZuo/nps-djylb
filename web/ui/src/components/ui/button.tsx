@@ -2,6 +2,7 @@ import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Slot } from "radix-ui"
 
+import { Tip } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
@@ -41,11 +42,14 @@ const buttonVariants = cva(
   }
 )
 
+// title renders as a styled Tooltip instead of the native browser one; it
+// still doubles as the accessible name for icon-only buttons via aria-label.
 function Button({
   className,
   variant = "default",
   size = "default",
   asChild = false,
+  title,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
@@ -54,13 +58,16 @@ function Button({
   const Comp = asChild ? Slot.Root : "button"
 
   return (
-    <Comp
-      data-slot="button"
-      data-variant={variant}
-      data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
+    <Tip content={title}>
+      <Comp
+        data-slot="button"
+        data-variant={variant}
+        data-size={size}
+        aria-label={title}
+        className={cn(buttonVariants({ variant, size, className }))}
+        {...props}
+      />
+    </Tip>
   )
 }
 

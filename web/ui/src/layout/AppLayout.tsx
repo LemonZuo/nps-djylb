@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Tip } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 interface NavItem {
@@ -92,24 +93,26 @@ function NavLinks({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate?:
         const title = collapsed ? t(item.labelKey) : undefined
         if (item.external) {
           return (
-            <a
-              key={item.to}
-              href={item.to}
-              target="_blank"
-              rel="noreferrer"
-              className={className}
-              title={title}
-            >
-              <item.icon className="size-4 shrink-0" />
-              {!collapsed && t(item.labelKey)}
-            </a>
+            <Tip key={item.to} content={title} side="right">
+              <a
+                href={item.to}
+                target="_blank"
+                rel="noreferrer"
+                className={className}
+              >
+                <item.icon className="size-4 shrink-0" />
+                {!collapsed && t(item.labelKey)}
+              </a>
+            </Tip>
           )
         }
         return (
-          <Link key={item.to} to={item.to} onClick={onNavigate} className={className} title={title}>
-            <item.icon className="size-4 shrink-0" />
-            {!collapsed && t(item.labelKey)}
-          </Link>
+          <Tip key={item.to} content={title} side="right">
+            <Link to={item.to} onClick={onNavigate} className={className}>
+              <item.icon className="size-4 shrink-0" />
+              {!collapsed && t(item.labelKey)}
+            </Link>
+          </Tip>
         )
       })}
     </nav>
