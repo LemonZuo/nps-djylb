@@ -225,7 +225,7 @@ export default function HostFormPage() {
   const showTls = httpsEnabled && !form.httpsJustProxy
 
   return (
-    <form onSubmit={submit} className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+    <form onSubmit={submit} className="flex w-full flex-col gap-4">
       <h1 className="text-2xl font-semibold">
         {id === null ? t("page-hostadd") : t("page-hostedit")}
       </h1>

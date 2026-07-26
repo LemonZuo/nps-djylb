@@ -207,7 +207,7 @@ export default function TunnelFormPage() {
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+    <form onSubmit={submit} className="flex w-full flex-col gap-4">
       <h1 className="text-2xl font-semibold">{id === null ? t("page-add") : t("page-edit")}</h1>
 
       <Card>
