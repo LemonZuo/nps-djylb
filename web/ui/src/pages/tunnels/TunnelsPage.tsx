@@ -369,7 +369,10 @@ export default function TunnelsPage() {
     })
   }
 
-  const columnCount = 12
+  // The old list only showed the HTTP/SOCKS5 start-stop columns on the
+  // dedicated mixProxy page, not in the mixed all-modes view.
+  const mixColumns = mode === "mixProxy"
+  const columnCount = mixColumns ? 14 : 12
 
   return (
     <div className="flex flex-col gap-4">
@@ -438,6 +441,24 @@ export default function TunnelsPage() {
             state={state}
             onSort={toggleSort}
           />,
+          ...(mixColumns
+            ? [
+                <SortHead
+                  key="http"
+                  label={t("word-httpproxy")}
+                  field="HttpProxy"
+                  state={state}
+                  onSort={toggleSort}
+                />,
+                <SortHead
+                  key="socks5"
+                  label={t("word-socks5proxy")}
+                  field="Socks5Proxy"
+                  state={state}
+                  onSort={toggleSort}
+                />,
+              ]
+            : []),
           <SortHead
             key="client"
             label={t("word-client")}
@@ -512,8 +533,10 @@ export default function TunnelsPage() {
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline">{t(`scheme-${row.mode.toLowerCase()}`)}</Badge>
-                  {row.mode === "mixProxy" && (
-                    <span className="ml-1 inline-flex gap-1 align-middle">
+                </TableCell>
+                {mixColumns && (
+                  <>
+                    <TableCell>
                       <Switch
                         title={t("word-enablehttpproxy")}
                         checked={row.httpProxy}
@@ -521,6 +544,8 @@ export default function TunnelsPage() {
                           act.mutate(() => api.tunnels.toggle(row.id, "http", "toggle"))
                         }
                       />
+                    </TableCell>
+                    <TableCell>
                       <Switch
                         title={t("word-enablesocks5proxy")}
                         checked={row.socks5Proxy}
@@ -528,9 +553,9 @@ export default function TunnelsPage() {
                           act.mutate(() => api.tunnels.toggle(row.id, "socks5", "toggle"))
                         }
                       />
-                    </span>
-                  )}
-                </TableCell>
+                    </TableCell>
+                  </>
+                )}
                 <TableCell
                   className={row.client.verifyKey ? "cursor-pointer text-xs" : "text-xs"}
                   title={row.client.verifyKey ? t("word-copy") : undefined}
