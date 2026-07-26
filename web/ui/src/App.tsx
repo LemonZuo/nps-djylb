@@ -11,6 +11,7 @@ import TunnelFormPage from "@/pages/tunnels/TunnelFormPage"
 import HostsPage from "@/pages/hosts/HostsPage"
 import HostFormPage from "@/pages/hosts/HostFormPage"
 import GlobalPage from "@/pages/global/GlobalPage"
+import BansPage from "@/pages/global/BansPage"
 
 export default function App() {
   const { user } = useAuth()
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="/hosts/new" element={<HostFormPage />} />
         <Route path="/hosts/:id/edit" element={<HostFormPage />} />
         <Route path="/global" element={<GlobalPage />} />
+        <Route path="/bans" element={<BansPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

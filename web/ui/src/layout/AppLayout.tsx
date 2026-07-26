@@ -1,19 +1,26 @@
 import { useState } from "react"
-import { NavLink, Outlet } from "react-router-dom"
+import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useTheme } from "next-themes"
 import { useQuery } from "@tanstack/react-query"
 import {
+  ArrowLeftRight,
+  Ban,
+  EyeOff,
+  FolderOpen,
   Gauge,
   Globe,
   Languages,
+  Layers,
+  Lightbulb,
   LogOut,
   Menu,
   MonitorSmartphone,
   Moon,
+  Repeat,
   Settings2,
+  Shuffle,
   Sun,
-  Waypoints,
 } from "lucide-react"
 import { api } from "@/api/endpoints"
 import { useAuth } from "@/auth/AuthContext"
@@ -35,40 +42,67 @@ interface NavItem {
   labelKey: string
   icon: typeof Gauge
   adminOnly?: boolean
+  // Tunnel entries share the /tunnels route and differ only in ?type=,
+  // so active state is matched on the query value, not the pathname.
+  type?: string
+  external?: boolean
 }
 
+// Mirrors the old Beego layout.html menu: each tunnel mode is its own entry.
 const NAV_ITEMS: NavItem[] = [
   { to: "/dashboard", labelKey: "word-dashboard", icon: Gauge },
-  { to: "/clients", labelKey: "page-clientlist", icon: MonitorSmartphone },
-  { to: "/tunnels", labelKey: "word-tunnel", icon: Waypoints },
-  { to: "/hosts", labelKey: "page-hostlist", icon: Globe },
+  { to: "/clients", labelKey: "word-client", icon: MonitorSmartphone },
+  { to: "/hosts", labelKey: "scheme-host", icon: Globe },
+  { to: "/tunnels?type=tcp", labelKey: "scheme-tcp", icon: Repeat, type: "tcp" },
+  { to: "/tunnels?type=udp", labelKey: "scheme-udp", icon: Shuffle, type: "udp" },
+  { to: "/tunnels?type=mixProxy", labelKey: "scheme-mixproxy", icon: Layers, type: "mixProxy" },
+  { to: "/tunnels?type=secret", labelKey: "scheme-secret", icon: EyeOff, type: "secret" },
+  { to: "/tunnels?type=p2p", labelKey: "scheme-p2p", icon: ArrowLeftRight, type: "p2p" },
+  { to: "/tunnels?type=file", labelKey: "scheme-file", icon: FolderOpen, type: "file" },
   { to: "/global", labelKey: "word-globalparam", icon: Settings2, adminOnly: true },
+  { to: "/bans", labelKey: "word-banlist", icon: Ban, adminOnly: true },
+  { to: "https://d-jy.net/docs/nps/", labelKey: "word-help", icon: Lightbulb, external: true },
 ]
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const currentType = searchParams.get("type") ?? ""
+
+  const isActive = (item: NavItem) => {
+    if (item.external) return false
+    const path = item.to.split("?")[0]
+    if (location.pathname !== path && !location.pathname.startsWith(path + "/")) return false
+    if (item.type !== undefined) return currentType === item.type
+    return true
+  }
 
   return (
     <nav className="flex flex-col gap-1 p-2">
-      {NAV_ITEMS.filter((item) => !item.adminOnly || user?.isAdmin).map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-              isActive
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            )
-          }
-        >
-          <item.icon className="size-4" />
-          {t(item.labelKey)}
-        </NavLink>
-      ))}
+      {NAV_ITEMS.filter((item) => !item.adminOnly || user?.isAdmin).map((item) => {
+        const className = cn(
+          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+          isActive(item)
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        )
+        if (item.external) {
+          return (
+            <a key={item.to} href={item.to} target="_blank" rel="noreferrer" className={className}>
+              <item.icon className="size-4" />
+              {t(item.labelKey)}
+            </a>
+          )
+        }
+        return (
+          <Link key={item.to} to={item.to} onClick={onNavigate} className={className}>
+            <item.icon className="size-4" />
+            {t(item.labelKey)}
+          </Link>
+        )
+      })}
     </nav>
   )
 }
