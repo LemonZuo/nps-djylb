@@ -78,7 +78,7 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b py-1.5 text-xs last:border-b-0">
+    <div className="flex items-center justify-between gap-4 border-b py-2.5 text-xs last:border-b-0">
       <span className="shrink-0 text-muted-foreground">{label}</span>
       <span className="truncate text-right font-medium">{value}</span>
     </div>
@@ -89,7 +89,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 function MeterRow({ label, percent }: { label: string; percent: number }) {
   const pct = Math.max(0, Math.min(100, percent))
   return (
-    <div className="border-b py-1.5 text-xs">
+    <div className="border-b py-2.5 text-xs">
       <div className="flex items-center justify-between gap-4">
         <span className="text-muted-foreground">{label}</span>
         <span className="font-medium">{pct}%</span>
