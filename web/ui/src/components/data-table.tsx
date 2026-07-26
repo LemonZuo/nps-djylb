@@ -1,8 +1,15 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { ChevronLeft, ChevronRight, Search } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -22,6 +29,8 @@ export interface ListState {
   offset: number
   limit: number
   search: string
+  sort?: string
+  order?: "asc" | "desc"
 }
 
 export function useListState(limit = 10) {
@@ -31,7 +40,41 @@ export function useListState(limit = 10) {
     setSearch: (search: string) => setState((s) => ({ ...s, search, offset: 0 })),
     prevPage: () => setState((s) => ({ ...s, offset: Math.max(0, s.offset - s.limit) })),
     nextPage: () => setState((s) => ({ ...s, offset: s.offset + s.limit })),
+    setLimit: (l: number) => setState((s) => ({ ...s, limit: l, offset: 0 })),
+    // Repeated clicks on one column cycle asc → desc; the backend list
+    // functions take the DTO field names (Id, Remark, TotalFlow, ...).
+    toggleSort: (field: string) =>
+      setState((s) =>
+        s.sort === field
+          ? { ...s, order: s.order === "asc" ? "desc" : "asc", offset: 0 }
+          : { ...s, sort: field, order: "asc", offset: 0 },
+      ),
   }
+}
+
+// SortHead is a clickable column header wired to useListState's toggleSort.
+export function SortHead({
+  label,
+  field,
+  state,
+  onSort,
+}: {
+  label: React.ReactNode
+  field: string
+  state: ListState
+  onSort: (field: string) => void
+}) {
+  const Icon = state.sort !== field ? ArrowUpDown : state.order === "asc" ? ArrowUp : ArrowDown
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 hover:text-foreground"
+      onClick={() => onSort(field)}
+    >
+      {label}
+      <Icon className="size-3.5" />
+    </button>
+  )
 }
 
 export function SearchBox({
@@ -63,21 +106,41 @@ export function SearchBox({
   )
 }
 
+const PAGE_SIZES = [5, 10, 20, 50, 100]
+
 export function ListFooter({
   state,
   total,
   onPrev,
   onNext,
+  onLimit,
 }: {
   state: ListState
   total: number
   onPrev: () => void
   onNext: () => void
+  onLimit?: (limit: number) => void
 }) {
   const { t } = useTranslation()
   return (
     <div className="flex items-center justify-between pt-3">
-      <span className="text-sm text-muted-foreground">{t("ui-total", { total })}</span>
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground">{t("ui-total", { total })}</span>
+        {onLimit && (
+          <Select value={String(state.limit)} onValueChange={(v) => onLimit(Number(v))}>
+            <SelectTrigger size="sm" className="w-18">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZES.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
       <div className="flex gap-1">
         <Button variant="outline" size="sm" disabled={state.offset === 0} onClick={onPrev}>
           <ChevronLeft className="size-4" />
