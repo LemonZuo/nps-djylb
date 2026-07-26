@@ -43,6 +43,7 @@ export const api = {
     bans: () => get<Paged<BanEntry>>("/auth/bans"),
     unban: (key: string) => del<null>(`/auth/bans/${encodeURIComponent(key)}`),
     unbanAll: () => del<null>("/auth/bans"),
+    cleanBans: () => post<null>("/auth/bans/clean"),
   },
 
   meta: {

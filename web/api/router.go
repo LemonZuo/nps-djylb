@@ -144,6 +144,7 @@ func registerRoutes(mux *http.ServeMux) {
 	}
 	mux.Handle("GET /auth/bans", admin(handleListBans))
 	mux.Handle("DELETE /auth/bans", admin(handleClearBans))
+	mux.Handle("POST /auth/bans/clean", admin(handleCleanBans))
 	mux.Handle("DELETE /auth/bans/{key}", admin(handleRemoveBan))
 
 	// Creating a client issues a vkey; deleting, disabling and quota resets
@@ -190,5 +191,13 @@ func handleRemoveBan(w http.ResponseWriter, r *http.Request) {
 // handleClearBans lifts every block.
 func handleClearBans(w http.ResponseWriter, r *http.Request) {
 	RemoveAllLoginBans()
+	Ok(w, r, nil)
+}
+
+// handleCleanBans drops expired records immediately instead of waiting for
+// the minute-interval background sweep — the old UI's refresh button did
+// this via /global/banclean before re-reading the table.
+func handleCleanBans(w http.ResponseWriter, r *http.Request) {
+	CleanBanRecords(true)
 	Ok(w, r, nil)
 }
