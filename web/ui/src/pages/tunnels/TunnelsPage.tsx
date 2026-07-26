@@ -19,13 +19,16 @@ import type { Bootstrap, TunnelView } from "@/api/types"
 import { useAuth } from "@/auth/AuthContext"
 import { useConfirm } from "@/components/confirm-dialog"
 import {
+  ColumnPicker,
   ListFooter,
   SearchBox,
   SimpleTable,
   SortHead,
+  useColumns,
   useListState,
+  type ColumnDef,
 } from "@/components/data-table"
-import { DetailItem, formatTimeLimit } from "@/components/detail-item"
+import { DetailItem, formatTimeLimit, formatTimeRemain } from "@/components/detail-item"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -55,6 +58,121 @@ export const TUNNEL_MODES = [
   "p2p",
   "file",
 ] as const
+
+// The old index/list.html column matrix; which columns exist at all also
+// depends on the ?type= filter, so the defs are built per mode below.
+function tunnelColumns(mode: string): ColumnDef[] {
+  const all = !mode
+  const cols: ColumnDef[] = [
+    { key: "id", labelKey: "word-id", defaultVisible: true, sortField: "Id" },
+    { key: "clientId", labelKey: "word-clientid", defaultVisible: true, sortField: "Client.Id" },
+    { key: "remark", labelKey: "word-remark", defaultVisible: false, sortField: "Remark" },
+    {
+      key: "clientVerifyKey",
+      labelKey: "word-verifykey",
+      defaultVisible: false,
+      sortField: "Client.VerifyKey",
+    },
+  ]
+  if (all) {
+    cols.push({ key: "mode", labelKey: "word-scheme", defaultVisible: true, sortField: "Mode" })
+  }
+  cols.push({ key: "port", labelKey: "word-port", defaultVisible: true, sortField: "Port" })
+  if (all || mode === "tcp" || mode === "udp" || mode === "mixProxy") {
+    cols.push({ key: "accessAddress", labelKey: "word-accessaddress", defaultVisible: true })
+  }
+  if (all || mode === "tcp" || mode === "udp" || mode === "secret" || mode === "p2p") {
+    cols.push({
+      key: "target",
+      labelKey: "word-target",
+      defaultVisible: true,
+      sortField: "Target.TargetStr",
+    })
+  }
+  if (all || mode === "secret" || mode === "p2p") {
+    cols.push(
+      {
+        key: "targetType",
+        labelKey: "word-targettype",
+        defaultVisible: true,
+        sortField: "TargetType",
+      },
+      {
+        key: "password",
+        labelKey: "word-identificationkey",
+        defaultVisible: true,
+        sortField: "Password",
+      },
+    )
+  }
+  if (mode === "file") {
+    cols.push(
+      { key: "localPath", labelKey: "word-localpath", defaultVisible: true },
+      { key: "stripPre", labelKey: "word-stripprefix", defaultVisible: true },
+    )
+  }
+  if (mode === "mixProxy") {
+    cols.push(
+      {
+        key: "httpProxy",
+        labelKey: "word-httpproxy",
+        defaultVisible: true,
+        sortField: "HttpProxy",
+      },
+      {
+        key: "socks5Proxy",
+        labelKey: "word-socks5proxy",
+        defaultVisible: true,
+        sortField: "Socks5Proxy",
+      },
+    )
+  }
+  cols.push(
+    { key: "inletFlow", labelKey: "word-inletflow", defaultVisible: false, sortField: "InletFlow" },
+    {
+      key: "exportFlow",
+      labelKey: "word-exportflow",
+      defaultVisible: false,
+      sortField: "ExportFlow",
+    },
+    { key: "totalFlow", labelKey: "word-totalflow", defaultVisible: true, sortField: "TotalFlow" },
+    {
+      key: "flowRemain",
+      labelKey: "word-flowremain",
+      defaultVisible: false,
+      sortField: "FlowRemain",
+    },
+    {
+      key: "timeRemain",
+      labelKey: "word-timeremain",
+      defaultVisible: false,
+      sortField: "TimeRemain",
+    },
+    {
+      key: "flowLimit",
+      labelKey: "word-flowlimit",
+      defaultVisible: false,
+      sortField: "Flow.FlowLimit",
+    },
+    {
+      key: "timeLimit",
+      labelKey: "word-timelimit",
+      defaultVisible: false,
+      sortField: "Flow.TimeLimit",
+    },
+    { key: "nowConn", labelKey: "word-nowconn", defaultVisible: true, sortField: "NowConn" },
+    { key: "status", labelKey: "word-status", defaultVisible: false, sortField: "Status" },
+    { key: "runStatus", labelKey: "word-runstatus", defaultVisible: true, sortField: "RunStatus" },
+    {
+      key: "clientStatus",
+      labelKey: "word-clientstatus",
+      defaultVisible: true,
+      sortField: "Client.IsConnect",
+    },
+    { key: "option", labelKey: "word-option", defaultVisible: true },
+  )
+  return cols
+}
 
 interface AccessItem {
   label: string
@@ -369,10 +487,32 @@ export default function TunnelsPage() {
     })
   }
 
-  // The old list only showed the HTTP/SOCKS5 start-stop columns on the
-  // dedicated mixProxy page, not in the mixed all-modes view.
-  const mixColumns = mode === "mixProxy"
-  const columnCount = mixColumns ? 14 : 12
+  // The column set depends on the ?type= filter (e.g. HTTP/SOCKS5 switches
+  // only on the mixProxy page), so overrides persist per mode.
+  const defs = useMemo(() => tunnelColumns(mode), [mode])
+  const { visible, toggle } = useColumns(`tunnels-${mode || "all"}`, defs)
+  const shown = defs.filter((c) => visible(c.key))
+  const headers: React.ReactNode[] = [
+    "",
+    ...shown.map((c) =>
+      c.sortField ? (
+        <SortHead
+          key={c.key}
+          label={t(c.labelKey)}
+          field={c.sortField}
+          state={state}
+          onSort={toggleSort}
+        />
+      ) : (
+        t(c.labelKey)
+      ),
+    ),
+  ]
+  const columnCount = headers.length
+
+  const clearCell = async (id: number, m: string) => {
+    if (await confirm(t("clear"))) act.mutate(() => api.tunnels.clear(id, m))
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -412,6 +552,7 @@ export default function TunnelsPage() {
             </SelectContent>
           </Select>
           <SearchBox value={state.search} onChange={setSearch} />
+          <ColumnPicker defs={defs} visible={visible} onToggle={toggle} />
           <Button asChild>
             <Link to={`/tunnels/new${clientId ? `?clientId=${clientId}` : ""}`}>
               <Plus className="size-4" />
@@ -421,86 +562,26 @@ export default function TunnelsPage() {
         </div>
       </div>
 
-      <SimpleTable
-        loading={isLoading}
-        empty={rows.length === 0}
-        headers={[
-          "",
-          <SortHead key="id" label="ID" field="Id" state={state} onSort={toggleSort} />,
-          <SortHead
-            key="remark"
-            label={t("word-remark")}
-            field="Remark"
-            state={state}
-            onSort={toggleSort}
-          />,
-          <SortHead
-            key="mode"
-            label={t("word-scheme")}
-            field="Mode"
-            state={state}
-            onSort={toggleSort}
-          />,
-          ...(mixColumns
-            ? [
-                <SortHead
-                  key="http"
-                  label={t("word-httpproxy")}
-                  field="HttpProxy"
-                  state={state}
-                  onSort={toggleSort}
-                />,
-                <SortHead
-                  key="socks5"
-                  label={t("word-socks5proxy")}
-                  field="Socks5Proxy"
-                  state={state}
-                  onSort={toggleSort}
-                />,
-              ]
-            : []),
-          <SortHead
-            key="client"
-            label={t("word-client")}
-            field="Client.Id"
-            state={state}
-            onSort={toggleSort}
-          />,
-          <SortHead
-            key="port"
-            label={t("word-port")}
-            field="Port"
-            state={state}
-            onSort={toggleSort}
-          />,
-          t("word-accessaddress"),
-          <SortHead
-            key="target"
-            label={t("word-target")}
-            field="Target.TargetStr"
-            state={state}
-            onSort={toggleSort}
-          />,
-          t("word-clientstatus"),
-          <SortHead
-            key="run"
-            label={t("word-runstatus")}
-            field="RunStatus"
-            state={state}
-            onSort={toggleSort}
-          />,
-          <SortHead
-            key="flow"
-            label={t("word-trafficstatistics")}
-            field="TotalFlow"
-            state={state}
-            onSort={toggleSort}
-          />,
-          t("word-option"),
-        ]}
-      >
+      <SimpleTable loading={isLoading} empty={rows.length === 0} headers={headers}>
         {rows.map((row) => {
           const items = accessItems(row, host)
+          const totalFlow = row.flow.inletFlow + row.flow.exportFlow
+          const clearable = (
+            text: React.ReactNode,
+            m: string,
+            enabled = true,
+          ): React.ReactNode =>
+            isAdmin && enabled ? (
+              <span
+                className="cursor-pointer hover:underline"
+                title={t("word-clear")}
+                onClick={() => void clearCell(row.id, m)}
+              >
+                {text}
+              </span>
+            ) : (
+              text
+            )
           return (
             <Fragment key={row.id}>
               <TableRow>
@@ -517,162 +598,264 @@ export default function TunnelsPage() {
                     )}
                   </button>
                 </TableCell>
-                <TableCell
-                  className="cursor-pointer font-mono"
-                  title={t("word-copy")}
-                  onClick={() => void copyText(String(row.id))}
-                >
-                  {row.id}
-                </TableCell>
-                <TableCell
-                  className="max-w-32 cursor-pointer truncate"
-                  title={t("word-copy")}
-                  onClick={() => row.remark && void copyText(row.remark)}
-                >
-                  {row.remark}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{t(`scheme-${row.mode.toLowerCase()}`)}</Badge>
-                </TableCell>
-                {mixColumns && (
-                  <>
-                    <TableCell>
-                      <Switch
-                        title={t("word-enablehttpproxy")}
-                        checked={row.httpProxy}
-                        onCheckedChange={() =>
-                          act.mutate(() => api.tunnels.toggle(row.id, "http", "toggle"))
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Switch
-                        title={t("word-enablesocks5proxy")}
-                        checked={row.socks5Proxy}
-                        onCheckedChange={() =>
-                          act.mutate(() => api.tunnels.toggle(row.id, "socks5", "toggle"))
-                        }
-                      />
-                    </TableCell>
-                  </>
+                {visible("id") && (
+                  <TableCell
+                    className="cursor-pointer font-mono"
+                    title={t("word-copy")}
+                    onClick={() => void copyText(String(row.id))}
+                  >
+                    {row.id}
+                  </TableCell>
                 )}
-                <TableCell
-                  className={row.client.verifyKey ? "cursor-pointer text-xs" : "text-xs"}
-                  title={row.client.verifyKey ? t("word-copy") : undefined}
-                  onClick={() => row.client.verifyKey && void copyText(row.client.verifyKey)}
-                >
-                  {row.client.id} {row.client.remark && `(${row.client.remark})`}
-                </TableCell>
-                <TableCell
-                  className="cursor-pointer font-mono"
-                  title={t("word-copy")}
-                  onClick={() => void copyText(String(row.port))}
-                >
-                  {row.port}
-                </TableCell>
-                <TableCell>
-                  {items.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      title={t("word-viewaddresses")}
-                      onClick={() => setAddressFor(row)}
-                    >
-                      <LinkIcon className="size-3" />
-                      {items.length}
-                    </Button>
-                  )}
-                </TableCell>
-                <TableCell
-                  className="max-w-40 cursor-pointer truncate font-mono text-xs"
-                  title={t("word-copy")}
-                  onClick={() => void copyText(row.target.target)}
-                >
-                  {row.target.target}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={row.client.isConnect ? "default" : "secondary"}>
-                    {row.client.isConnect ? t("word-online") : t("word-offline")}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {/* The old list linked a running tcp tunnel that probes as
-                      HTTP straight to its public URL. */}
-                  {row.runStatus && row.mode === "tcp" && row.isHttp ? (
-                    <a href={`http://${host}:${row.port}`} target="_blank" rel="noreferrer">
-                      <Badge variant="default">{t("word-open")}</Badge>
-                    </a>
-                  ) : (
-                    <Badge variant={row.runStatus ? "default" : "destructive"}>
-                      {row.runStatus ? t("word-open") : t("word-close")}
+                {visible("clientId") && (
+                  <TableCell
+                    className={row.client.verifyKey ? "cursor-pointer text-xs" : "text-xs"}
+                    title={row.client.verifyKey ? t("word-copy") : undefined}
+                    onClick={() => row.client.verifyKey && void copyText(row.client.verifyKey)}
+                  >
+                    {row.client.id} {row.client.remark && `(${row.client.remark})`}
+                  </TableCell>
+                )}
+                {visible("remark") && (
+                  <TableCell
+                    className="max-w-32 cursor-pointer truncate"
+                    title={t("word-copy")}
+                    onClick={() => row.remark && void copyText(row.remark)}
+                  >
+                    {row.remark}
+                  </TableCell>
+                )}
+                {visible("clientVerifyKey") && (
+                  <TableCell
+                    className="max-w-36 cursor-pointer truncate font-mono text-xs"
+                    title={t("word-copy")}
+                    onClick={() => row.client.verifyKey && void copyText(row.client.verifyKey)}
+                  >
+                    {row.client.verifyKey}
+                  </TableCell>
+                )}
+                {visible("mode") && (
+                  <TableCell>
+                    <Badge variant="outline">{t(`scheme-${row.mode.toLowerCase()}`)}</Badge>
+                  </TableCell>
+                )}
+                {visible("port") && (
+                  <TableCell
+                    className="cursor-pointer font-mono"
+                    title={t("word-copy")}
+                    onClick={() => void copyText(String(row.port))}
+                  >
+                    {row.port}
+                  </TableCell>
+                )}
+                {visible("accessAddress") && (
+                  <TableCell>
+                    {items.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        title={t("word-viewaddresses")}
+                        onClick={() => setAddressFor(row)}
+                      >
+                        <LinkIcon className="size-3" />
+                        {items.length}
+                      </Button>
+                    )}
+                  </TableCell>
+                )}
+                {visible("target") && (
+                  <TableCell
+                    className="max-w-40 cursor-pointer truncate font-mono text-xs"
+                    title={t("word-copy")}
+                    onClick={() => void copyText(row.target.target)}
+                  >
+                    {row.target.target}
+                  </TableCell>
+                )}
+                {visible("targetType") && (
+                  <TableCell className="text-xs">
+                    {row.mode === "secret" || row.mode === "p2p"
+                      ? (row.targetType || "all").toUpperCase()
+                      : ""}
+                  </TableCell>
+                )}
+                {visible("password") && (
+                  <TableCell
+                    className="max-w-32 cursor-pointer truncate font-mono text-xs"
+                    title={t("word-copy")}
+                    onClick={() => row.password && void copyText(row.password)}
+                  >
+                    {row.mode === "secret" || row.mode === "p2p" ? row.password : ""}
+                  </TableCell>
+                )}
+                {visible("localPath") && (
+                  <TableCell className="max-w-40 truncate font-mono text-xs">
+                    {row.localPath}
+                  </TableCell>
+                )}
+                {visible("stripPre") && (
+                  <TableCell className="font-mono text-xs">{row.stripPre}</TableCell>
+                )}
+                {visible("httpProxy") && (
+                  <TableCell>
+                    <Switch
+                      title={t("word-enablehttpproxy")}
+                      checked={row.httpProxy}
+                      onCheckedChange={() =>
+                        act.mutate(() => api.tunnels.toggle(row.id, "http", "toggle"))
+                      }
+                    />
+                  </TableCell>
+                )}
+                {visible("socks5Proxy") && (
+                  <TableCell>
+                    <Switch
+                      title={t("word-enablesocks5proxy")}
+                      checked={row.socks5Proxy}
+                      onCheckedChange={() =>
+                        act.mutate(() => api.tunnels.toggle(row.id, "socks5", "toggle"))
+                      }
+                    />
+                  </TableCell>
+                )}
+                {visible("inletFlow") && (
+                  <TableCell className="text-xs">
+                    {clearable(formatBytes(row.flow.inletFlow), "flow")}
+                  </TableCell>
+                )}
+                {visible("exportFlow") && (
+                  <TableCell className="text-xs">
+                    {clearable(formatBytes(row.flow.exportFlow), "flow")}
+                  </TableCell>
+                )}
+                {visible("totalFlow") && (
+                  <TableCell className="text-xs">
+                    {clearable(formatBytes(totalFlow), "flow")}
+                  </TableCell>
+                )}
+                {visible("flowRemain") && (
+                  <TableCell className="text-xs">
+                    {row.flow.flowLimit === 0
+                      ? "∞"
+                      : clearable(
+                          formatBytes(row.flow.flowLimit * 1024 * 1024 - totalFlow),
+                          "flow_limit",
+                        )}
+                  </TableCell>
+                )}
+                {visible("timeRemain") && (
+                  <TableCell className="text-xs">
+                    {clearable(
+                      formatTimeRemain(row.flow.timeLimit),
+                      "time_limit",
+                      row.flow.timeLimit !== 0,
+                    )}
+                  </TableCell>
+                )}
+                {visible("flowLimit") && (
+                  <TableCell className="text-xs">
+                    {row.flow.flowLimit === 0
+                      ? t("word-false")
+                      : clearable(formatBytes(row.flow.flowLimit * 1024 * 1024), "flow_limit")}
+                  </TableCell>
+                )}
+                {visible("timeLimit") && (
+                  <TableCell className="text-xs">
+                    {formatTimeLimit(row.flow.timeLimit) === null
+                      ? t("word-false")
+                      : clearable(formatTimeLimit(row.flow.timeLimit), "time_limit")}
+                  </TableCell>
+                )}
+                {visible("nowConn") && <TableCell>{row.nowConn}</TableCell>}
+                {visible("status") && (
+                  <TableCell>
+                    <Badge variant={row.status ? "default" : "destructive"}>
+                      {row.status ? t("word-open") : t("word-close")}
                     </Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-xs">
-                  {formatBytes(row.flow.inletFlow)} / {formatBytes(row.flow.exportFlow)}
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    {row.status ? (
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        title={t("word-stop")}
-                        onClick={async () => {
-                          if (await confirm(t("stop"))) {
-                            act.mutate(() => api.tunnels.stop(row.id))
-                          }
-                        }}
-                      >
-                        <Square className="size-3.5" />
-                      </Button>
+                  </TableCell>
+                )}
+                {visible("runStatus") && (
+                  <TableCell>
+                    {/* The old list linked a running tcp tunnel that probes as
+                        HTTP straight to its public URL. */}
+                    {row.runStatus && row.mode === "tcp" && row.isHttp ? (
+                      <a href={`http://${host}:${row.port}`} target="_blank" rel="noreferrer">
+                        <Badge variant="default">{t("word-open")}</Badge>
+                      </a>
                     ) : (
+                      <Badge variant={row.runStatus ? "default" : "destructive"}>
+                        {row.runStatus ? t("word-open") : t("word-close")}
+                      </Badge>
+                    )}
+                  </TableCell>
+                )}
+                {visible("clientStatus") && (
+                  <TableCell>
+                    <Badge variant={row.client.isConnect ? "default" : "secondary"}>
+                      {row.client.isConnect ? t("word-online") : t("word-offline")}
+                    </Badge>
+                  </TableCell>
+                )}
+                {visible("option") && (
+                  <TableCell>
+                    <div className="flex gap-1">
+                      {row.status ? (
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          title={t("word-stop")}
+                          onClick={async () => {
+                            if (await confirm(t("stop"))) {
+                              act.mutate(() => api.tunnels.stop(row.id))
+                            }
+                          }}
+                        >
+                          <Square className="size-3.5" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          title={t("word-start")}
+                          onClick={async () => {
+                            if (await confirm(t("start"))) {
+                              act.mutate(() => api.tunnels.start(row.id))
+                            }
+                          }}
+                        >
+                          <Play className="size-3.5" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon-xs" title={t("word-edit")} asChild>
+                        <Link to={`/tunnels/${row.id}/edit`}>
+                          <Pencil className="size-3.5" />
+                        </Link>
+                      </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          title={t("word-clearflow")}
+                          onClick={() => void clearCell(row.id, "flow")}
+                        >
+                          <Eraser className="size-3.5" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon-xs"
-                        title={t("word-start")}
+                        title={t("word-delete")}
                         onClick={async () => {
-                          if (await confirm(t("start"))) {
-                            act.mutate(() => api.tunnels.start(row.id))
+                          if (await confirm(t("delete"))) {
+                            act.mutate(() => api.tunnels.remove(row.id))
                           }
                         }}
                       >
-                        <Play className="size-3.5" />
+                        <Trash2 className="size-3.5 text-destructive" />
                       </Button>
-                    )}
-                    <Button variant="ghost" size="icon-xs" title={t("word-edit")} asChild>
-                      <Link to={`/tunnels/${row.id}/edit`}>
-                        <Pencil className="size-3.5" />
-                      </Link>
-                    </Button>
-                    {isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        title={t("word-clearflow")}
-                        onClick={async () => {
-                          if (await confirm(t("clear"))) {
-                            act.mutate(() => api.tunnels.clear(row.id, "flow"))
-                          }
-                        }}
-                      >
-                        <Eraser className="size-3.5" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      title={t("word-delete")}
-                      onClick={async () => {
-                        if (await confirm(t("delete"))) {
-                          act.mutate(() => api.tunnels.remove(row.id))
-                        }
-                      }}
-                    >
-                      <Trash2 className="size-3.5 text-destructive" />
-                    </Button>
-                  </div>
-                </TableCell>
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
               {expanded.has(row.id) && (
                 <TableRow>
@@ -682,11 +865,7 @@ export default function TunnelsPage() {
                       isAdmin={isAdmin}
                       bootstrap={bootstrap}
                       secretLink={secretLink}
-                      onClear={async (m) => {
-                        if (await confirm(t("clear"))) {
-                          act.mutate(() => api.tunnels.clear(row.id, m))
-                        }
-                      }}
+                      onClear={(m) => void clearCell(row.id, m)}
                     />
                   </TableCell>
                 </TableRow>

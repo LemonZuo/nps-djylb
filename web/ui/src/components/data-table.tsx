@@ -1,7 +1,21 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search } from "lucide-react"
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Columns3,
+  Search,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -50,6 +64,96 @@ export function useListState(limit = 10) {
           : { ...s, sort: field, order: "asc", offset: 0 },
       ),
   }
+}
+
+// Column visibility, ported from bootstrap-table's showColumns dropdown. Each
+// page declares its columns with the old template's default visibility; user
+// overrides persist per-table in localStorage.
+
+export interface ColumnDef {
+  key: string
+  // labelKey is the i18n key for both the header and the picker entry.
+  labelKey: string
+  defaultVisible: boolean
+  // sortField is the backend DTO field for SortHead; omit for unsortable.
+  sortField?: string
+}
+
+function loadOverrides(storageKey: string): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(`columns-${storageKey}`)
+    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function useColumns(storageKey: string, defs: ColumnDef[]) {
+  const [store, setStore] = useState(() => ({
+    key: storageKey,
+    overrides: loadOverrides(storageKey),
+  }))
+  // The tunnel page swaps storage keys per ?type= without remounting; reload
+  // the overrides when that happens (render-time derived-state reset).
+  if (store.key !== storageKey) {
+    setStore({ key: storageKey, overrides: loadOverrides(storageKey) })
+  }
+  // defs can change between renders (per-mode columns on the tunnel list);
+  // capture the latest for the toggle callback without re-reading storage.
+  const defsRef = useRef(defs)
+  defsRef.current = defs
+
+  const visible = (key: string) => {
+    const def = defs.find((d) => d.key === key)
+    if (!def) return false
+    return store.overrides[key] ?? def.defaultVisible
+  }
+  const toggle = (key: string) => {
+    setStore((prev) => {
+      const def = defsRef.current.find((d) => d.key === key)
+      const overrides = {
+        ...prev.overrides,
+        [key]: !(prev.overrides[key] ?? def?.defaultVisible ?? true),
+      }
+      localStorage.setItem(`columns-${prev.key}`, JSON.stringify(overrides))
+      return { ...prev, overrides }
+    })
+  }
+  return { visible, toggle }
+}
+
+// ColumnPicker is the "show columns" dropdown button in the list toolbar.
+export function ColumnPicker({
+  defs,
+  visible,
+  onToggle,
+}: {
+  defs: ColumnDef[]
+  visible: (key: string) => boolean
+  onToggle: (key: string) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon" title={t("ui-columns")}>
+          <Columns3 className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="max-h-96 overflow-y-auto">
+        {defs.map((d) => (
+          <DropdownMenuCheckboxItem
+            key={d.key}
+            checked={visible(d.key)}
+            onCheckedChange={() => onToggle(d.key)}
+            onSelect={(e) => e.preventDefault()}
+          >
+            {t(d.labelKey)}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 // SortHead is a clickable column header wired to useListState's toggleSort.

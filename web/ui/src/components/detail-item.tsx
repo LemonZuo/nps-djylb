@@ -55,3 +55,22 @@ export function formatTimeLimit(unixSecs: number): string | null {
   if (!unixSecs) return null
   return new Date(unixSecs * 1000).toLocaleString()
 }
+
+// formatTimeRemain matches the old getRemainingTime helper: countdown to the
+// time limit as the two most significant of d/h/m/s, ∞ for no limit.
+export function formatTimeRemain(unixSecs: number): string {
+  if (!unixSecs) return "∞"
+  const diff = unixSecs * 1000 - Date.now()
+  if (diff <= 0) return "0"
+  const s = Math.floor(diff / 1000)
+  const days = Math.floor(s / 86400)
+  const hours = Math.floor((s % 86400) / 3600)
+  const minutes = Math.floor((s % 3600) / 60)
+  const parts = [
+    days ? `${days}d` : null,
+    hours ? `${hours}h` : null,
+    minutes ? `${minutes}m` : null,
+    `${s % 60}s`,
+  ].filter(Boolean)
+  return parts.slice(0, 2).join(" ")
+}
