@@ -289,9 +289,9 @@ export default function DashboardPage() {
           <ChartCard title={t("word-load")}>
             <EChart
               option={lineOption(times, [
-                { name: "load1", data: col("load1") },
-                { name: "load5", data: col("load5") },
-                { name: "load15", data: col("load15") },
+                { name: t("word-loadavg1"), data: col("load1") },
+                { name: t("word-loadavg5"), data: col("load5") },
+                { name: t("word-loadavg15"), data: col("load15") },
               ])}
             />
           </ChartCard>
