@@ -95,6 +95,10 @@ export interface ClientRef {
   remark: string
   verifyKey?: string
   isConnect: boolean
+  crypt: boolean
+  compress: boolean
+  basicUser?: string
+  basicPassword?: string
 }
 
 export interface ClientView {
@@ -125,6 +129,7 @@ export interface ClientView {
   tunnelNum: number
   createTime: string
   lastOnlineTime: string
+  noStore: boolean
 }
 
 export interface TunnelView {
@@ -144,6 +149,7 @@ export interface TunnelView {
   stripPre: string
   httpProxy: boolean
   socks5Proxy: boolean
+  isHttp: boolean
   destAclMode: number
   destAclRules: string
   nowConn: number

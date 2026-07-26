@@ -91,6 +91,12 @@ type ClientRef struct {
 	Remark    string `json:"remark"`
 	VerifyKey string `json:"verifyKey,omitempty"`
 	IsConnect bool   `json:"isConnect"`
+	// Crypt/Compress and the basic-auth pair are shown in the old UI's
+	// expandable detail rows; the credentials follow the vkey's owner gate.
+	Crypt         bool   `json:"crypt"`
+	Compress      bool   `json:"compress"`
+	BasicUser     string `json:"basicUser,omitempty"`
+	BasicPassword string `json:"basicPassword,omitempty"`
 }
 
 func newClientRef(c *file.Client, p *Principal) ClientRef {
@@ -98,8 +104,16 @@ func newClientRef(c *file.Client, p *Principal) ClientRef {
 		return ClientRef{}
 	}
 	ref := ClientRef{ID: c.Id, Remark: c.Remark, IsConnect: c.IsConnect}
+	if c.Cnf != nil {
+		ref.Crypt = c.Cnf.Crypt
+		ref.Compress = c.Cnf.Compress
+	}
 	if OwnsClient(p, c.Id) {
 		ref.VerifyKey = c.VerifyKey
+		if c.Cnf != nil {
+			ref.BasicUser = c.Cnf.U
+			ref.BasicPassword = c.Cnf.P
+		}
 	}
 	return ref
 }
@@ -154,6 +168,9 @@ type ClientView struct {
 	TunnelNum      int    `json:"tunnelNum"`
 	CreateTime     string `json:"createTime"`
 	LastOnlineTime string `json:"lastOnlineTime"`
+	// NoStore marks the ephemeral public client (public_vkey): its key is
+	// shared, and it cannot be deleted.
+	NoStore bool `json:"noStore"`
 }
 
 // NewClientView renders c for p. Nothing here is secret to an owner, except
@@ -181,6 +198,7 @@ func NewClientView(c *file.Client, p *Principal) ClientView {
 		TunnelNum:       c.GetTunnelNum(),
 		CreateTime:      c.CreateTime,
 		LastOnlineTime:  c.LastOnlineTime,
+		NoStore:         c.NoStore,
 	}
 	if OwnsClient(p, c.Id) {
 		v.VerifyKey = c.VerifyKey
@@ -226,6 +244,8 @@ type TunnelView struct {
 	// HttpProxy and Socks5Proxy select the sub-protocols of mixProxy mode.
 	HttpProxy   bool `json:"httpProxy"`
 	Socks5Proxy bool `json:"socks5Proxy"`
+	// IsHttp marks a tcp tunnel whose target speaks HTTP (backend probe).
+	IsHttp bool `json:"isHttp"`
 	// DestAclMode is 0 (off), 1 (whitelist) or 2 (blacklist).
 	DestAclMode  int      `json:"destAclMode"`
 	DestAclRules string   `json:"destAclRules"`
@@ -252,6 +272,7 @@ func NewTunnelView(t *file.Tunnel, p *Principal) TunnelView {
 		StripPre:     t.StripPre,
 		HttpProxy:    t.HttpProxy,
 		Socks5Proxy:  t.Socks5Proxy,
+		IsHttp:       t.IsHttp,
 		DestAclMode:  t.DestAclMode,
 		DestAclRules: t.DestAclRules,
 		NowConn:      t.NowConn,
