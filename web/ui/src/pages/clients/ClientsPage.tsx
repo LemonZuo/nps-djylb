@@ -612,16 +612,13 @@ export default function ClientsPage() {
                 )}
                 {visible("show") && (
                   <TableCell>
-                    <div className="flex gap-2 text-xs">
-                      <Link
-                        to={`/tunnels?clientId=${c.id}`}
-                        className="text-primary hover:underline"
-                      >
-                        {t("word-tunnel")} {c.tunnelNum}
-                      </Link>
-                      <Link to={`/hosts?clientId=${c.id}`} className="text-primary hover:underline">
-                        {t("word-host")}
-                      </Link>
+                    <div className="flex gap-1.5">
+                      <Button variant="outline" size="xs" asChild>
+                        <Link to={`/tunnels?clientId=${c.id}`}>{t("word-tunnel")}</Link>
+                      </Button>
+                      <Button variant="outline" size="xs" asChild>
+                        <Link to={`/hosts?clientId=${c.id}`}>{t("word-host")}</Link>
+                      </Button>
                     </div>
                   </TableCell>
                 )}
