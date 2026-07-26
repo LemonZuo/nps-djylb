@@ -20,7 +20,7 @@ export function DetailItem({
 }) {
   const { t } = useTranslation()
   return (
-    <span className="mr-6 inline-flex items-baseline gap-1 leading-7">
+    <span className="mr-6 inline-flex items-baseline gap-1 text-xs leading-6">
       <b>{label}</b>:
       {copyable !== undefined ? (
         <span

@@ -193,7 +193,7 @@ function TunnelDetail({
   const destMode = row.destAclMode
 
   return (
-    <div className="bg-muted/30 px-6 py-3 text-sm">
+    <div className="bg-muted/30 px-6 py-2 text-xs">
       <div>
         <DetailItem
           label={t("word-inletflow")}
