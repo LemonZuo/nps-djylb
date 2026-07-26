@@ -532,27 +532,31 @@ export default function TunnelsPage() {
           )}
         </h1>
         <div className="flex items-center gap-2">
-          <Select
-            value={mode || "all"}
-            onValueChange={(v) => {
-              const next = new URLSearchParams(searchParams)
-              if (v === "all") next.delete("type")
-              else next.set("type", v)
-              setSearchParams(next)
-            }}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("word-all")}</SelectItem>
-              {TUNNEL_MODES.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {t(`scheme-${m.toLowerCase()}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* The sidebar menu already scopes the list by ?type=, so the type
+              filter only shows on the untyped "all tunnels" view. */}
+          {!mode && (
+            <Select
+              value="all"
+              onValueChange={(v) => {
+                const next = new URLSearchParams(searchParams)
+                if (v === "all") next.delete("type")
+                else next.set("type", v)
+                setSearchParams(next)
+              }}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("word-all")}</SelectItem>
+                {TUNNEL_MODES.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {t(`scheme-${m.toLowerCase()}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <SearchBox value={state.search} onChange={setSearch} />
           <ColumnPicker defs={defs} visible={visible} onToggle={toggle} />
           <Button asChild>
