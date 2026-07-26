@@ -101,8 +101,41 @@ func registerRoutes(mux *http.ServeMux) {
 
 	// --- authenticated ---
 
-	mux.Handle("GET /auth/me", RequireAuth(http.HandlerFunc(handleMe)))
-	mux.Handle("POST /auth/logout", RequireAuth(http.HandlerFunc(handleLogout)))
+	auth := func(h http.HandlerFunc) http.Handler {
+		return RequireAuth(h)
+	}
+	mux.Handle("GET /auth/me", auth(handleMe))
+	mux.Handle("POST /auth/logout", auth(handleLogout))
+
+	mux.Handle("GET /meta/bootstrap", auth(handleBootstrap))
+	mux.Handle("GET /dashboard", auth(handleDashboard))
+	mux.Handle("GET /dashboard/history", auth(handleDashboardHistory))
+
+	// Per-record client routes go through requireClientAccess, which scopes a
+	// user to their own record; the collection is scoped by resolveClientScope.
+	mux.Handle("GET /clients", auth(handleListClients))
+	mux.Handle("GET /clients/{id}", auth(handleGetClient))
+	mux.Handle("PUT /clients/{id}", auth(handleUpdateClient))
+	mux.Handle("POST /clients/{id}/ping", auth(handlePingClient))
+	mux.Handle("GET /clients/{id}/qrcode", auth(handleClientQRCode))
+
+	mux.Handle("GET /tunnels", auth(handleListTunnels))
+	mux.Handle("POST /tunnels", auth(handleCreateTunnel))
+	mux.Handle("GET /tunnels/{id}", auth(handleGetTunnel))
+	mux.Handle("PUT /tunnels/{id}", auth(handleUpdateTunnel))
+	mux.Handle("DELETE /tunnels/{id}", auth(handleDeleteTunnel))
+	mux.Handle("POST /tunnels/{id}/start", auth(handleStartTunnel))
+	mux.Handle("POST /tunnels/{id}/stop", auth(handleStopTunnel))
+	mux.Handle("POST /tunnels/{id}/toggle", auth(handleToggleTunnel))
+
+	mux.Handle("GET /hosts", auth(handleListHosts))
+	mux.Handle("POST /hosts", auth(handleCreateHost))
+	mux.Handle("GET /hosts/{id}", auth(handleGetHost))
+	mux.Handle("PUT /hosts/{id}", auth(handleUpdateHost))
+	mux.Handle("DELETE /hosts/{id}", auth(handleDeleteHost))
+	mux.Handle("POST /hosts/{id}/start", auth(handleStartHost))
+	mux.Handle("POST /hosts/{id}/stop", auth(handleStopHost))
+	mux.Handle("POST /hosts/{id}/toggle", auth(handleToggleHost))
 
 	// --- administrator only ---
 
@@ -112,6 +145,20 @@ func registerRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /auth/bans", admin(handleListBans))
 	mux.Handle("DELETE /auth/bans", admin(handleClearBans))
 	mux.Handle("DELETE /auth/bans/{key}", admin(handleRemoveBan))
+
+	// Creating a client issues a vkey; deleting, disabling and quota resets
+	// are operator levers. Users manage their own record via PUT above.
+	mux.Handle("POST /clients", admin(handleCreateClient))
+	mux.Handle("DELETE /clients/{id}", admin(handleDeleteClient))
+	mux.Handle("POST /clients/{id}/status", admin(handleClientStatus))
+	mux.Handle("POST /clients/{id}/clear", admin(handleClearClient))
+	mux.Handle("POST /clients/clear", admin(handleClearClient))
+
+	mux.Handle("POST /tunnels/{id}/clear", admin(handleClearTunnel))
+	mux.Handle("POST /hosts/{id}/clear", admin(handleClearHost))
+
+	mux.Handle("GET /global", admin(handleGetGlobal))
+	mux.Handle("PUT /global", admin(handleUpdateGlobal))
 
 	// Anything under the API prefix that matched no route is a client error in
 	// JSON terms, so it must not fall through to the SPA's HTML.
