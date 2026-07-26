@@ -83,17 +83,65 @@ func mountUnder(base string, next http.Handler) http.Handler {
 	})
 }
 
-// registerRoutes wires the JSON endpoints. Later milestones fill this in; the
-// health endpoint exists from the start so the transport can be verified
-// independently of any business logic.
+// registerRoutes wires the JSON endpoints.
+//
+// Routes are grouped by the credential they need. Anonymous routes are listed
+// explicitly and everything else goes through RequireAuth, so adding an
+// endpoint without thinking about authentication fails closed.
 func registerRoutes(mux *http.ServeMux) {
+	// --- anonymous ---
+
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		Ok(w, r, map[string]string{"status": "ok"})
 	})
+	mux.HandleFunc("GET /auth/challenge", handleChallenge)
+	mux.HandleFunc("GET /auth/captcha", handleCaptcha)
+	mux.HandleFunc("POST /auth/login", handleLogin)
+	mux.HandleFunc("POST /auth/register", handleRegister)
+
+	// --- authenticated ---
+
+	mux.Handle("GET /auth/me", RequireAuth(http.HandlerFunc(handleMe)))
+	mux.Handle("POST /auth/logout", RequireAuth(http.HandlerFunc(handleLogout)))
+
+	// --- administrator only ---
+
+	admin := func(h http.HandlerFunc) http.Handler {
+		return RequireAuth(RequireAdmin(h))
+	}
+	mux.Handle("GET /auth/bans", admin(handleListBans))
+	mux.Handle("DELETE /auth/bans", admin(handleClearBans))
+	mux.Handle("DELETE /auth/bans/{key}", admin(handleRemoveBan))
 
 	// Anything under the API prefix that matched no route is a client error in
 	// JSON terms, so it must not fall through to the SPA's HTML.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		NotFound(w, r, "no such endpoint")
 	})
+}
+
+// handleListBans reports the current login throttling state.
+func handleListBans(w http.ResponseWriter, r *http.Request) {
+	list := ListLoginBans()
+	OkList(w, r, list, int64(len(list)))
+}
+
+// handleRemoveBan lifts the block on one address or username.
+func handleRemoveBan(w http.ResponseWriter, r *http.Request) {
+	key := r.PathValue("key")
+	if key == "" {
+		BadRequest(w, r, "key is required")
+		return
+	}
+	if !RemoveLoginBan(key) {
+		NotFound(w, r, "no such ban record")
+		return
+	}
+	Ok(w, r, nil)
+}
+
+// handleClearBans lifts every block.
+func handleClearBans(w http.ResponseWriter, r *http.Request) {
+	RemoveAllLoginBans()
+	Ok(w, r, nil)
 }

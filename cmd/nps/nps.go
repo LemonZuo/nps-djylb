@@ -323,6 +323,15 @@ func run() {
 	bridge.ServerWsEnable = appconfig.AppConfig().DefaultBool("ws_enable", true) && connection.BridgeWsPort != 0 && connection.BridgePath != "" && bridgeType == "tcp"
 	bridge.ServerWssEnable = appconfig.AppConfig().DefaultBool("wss_enable", true) && connection.BridgeWssPort != 0 && connection.BridgePath != "" && bridgeType == "tcp"
 
+	// Resolve the JWT signing key before anything can serve a login. Doing it
+	// here also generates and persists one on a first start, so the failure is
+	// reported at boot rather than on the operator's first login attempt.
+	if err := api.InitTokenKey(); err != nil {
+		logs.Error("cannot initialise the API signing key: %v", err)
+		return
+	}
+	api.StartLoginBanCleaner()
+
 	// The API handlers call into server/, so server/ cannot import them. Wiring
 	// happens here, where importing both is fine.
 	router := api.NewRouter(common.StartTime)
