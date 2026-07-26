@@ -350,21 +350,9 @@ func downloadLatest(bin string) string {
 
 func copyStaticFile(srcPath, bin string) string {
 	path := common.GetInstallPath()
+	// The admin UI is embedded in the nps binary since the React rewrite, so
+	// only the config template needs to be copied alongside the executable.
 	if bin == "nps" {
-		if err := CopyDir(filepath.Join(srcPath, "web", "views"), filepath.Join(path, "web", "views")); err != nil {
-			if exists, _ := pathExists(filepath.Join(path, "web", "views")); exists {
-				goto ExecPath
-			}
-			log.Fatalln(err)
-		}
-		chMod(filepath.Join(path, "web", "views"), 0766)
-		if err := CopyDir(filepath.Join(srcPath, "web", "static"), filepath.Join(path, "web", "static")); err != nil {
-			if exists, _ := pathExists(filepath.Join(path, "web", "static")); exists {
-				goto ExecPath
-			}
-			log.Fatalln(err)
-		}
-		chMod(filepath.Join(path, "web", "static"), 0766)
 		if _, err := copyFile(filepath.Join(srcPath, "conf", "nps.conf"), filepath.Join(path, "conf", "nps.conf.default")); err != nil {
 			if exists, _ := pathExists(filepath.Join(path, "conf", "nps.conf")); exists {
 				goto ExecPath
@@ -417,10 +405,8 @@ func InstallNpc() {
 func InstallNps() string {
 	path := common.GetInstallPath()
 	log.Println("install path:" + path)
-	if common.FileExists(path) {
-		MkidrDirAll(path, "web/static", "web/views")
-	} else {
-		MkidrDirAll(path, "conf", "web/static", "web/views")
+	if !common.FileExists(path) {
+		MkidrDirAll(path, "conf")
 		// not copy config if the config file is exist
 		if err := CopyDir(filepath.Join(common.GetAppPath(), "conf"), filepath.Join(path, "conf")); err != nil {
 			log.Fatalln(err)
