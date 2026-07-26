@@ -170,7 +170,6 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              <p className="text-xs text-muted-foreground">{t("ui-totp-hint")}</p>
             </div>
 
             {challenge?.captchaOpen && captcha && (
@@ -199,9 +198,6 @@ export default function LoginPage() {
               {solving ? t("ui-solving-pow") : busy ? t("processing") : t("word-login")}
             </Button>
 
-            {challenge?.vkeyLoginAllowed && (
-              <p className="text-center text-xs text-muted-foreground">{t("ui-vkey-login-hint")}</p>
-            )}
             {challenge?.registerAllowed && (
               <p className="text-center text-sm text-muted-foreground">
                 {t("info-noaccount")}{" "}
