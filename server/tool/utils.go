@@ -6,12 +6,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/beego/beego"
-	"github.com/djylb/nps/lib/common"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/load"
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/net"
+
+	"github.com/djylb/nps/lib/appconfig"
+	"github.com/djylb/nps/lib/common"
 )
 
 var (
@@ -32,7 +33,7 @@ func init() {
 }
 
 func StartSystemInfo() {
-	if b, err := beego.AppConfig.Bool("system_info_display"); err == nil && b {
+	if b, err := appconfig.AppConfig().Bool("system_info_display"); err == nil && b {
 		startOnce.Do(func() {
 			go getServerStatus()
 		})
@@ -40,7 +41,7 @@ func StartSystemInfo() {
 }
 
 func InitAllowPort() {
-	p := beego.AppConfig.String("allow_ports")
+	p := appconfig.AppConfig().String("allow_ports")
 	ports = common.GetPorts(p)
 	buildAllowPortSet()
 }

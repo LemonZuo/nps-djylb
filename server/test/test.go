@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/beego/beego"
+	"github.com/djylb/nps/lib/appconfig"
 	"github.com/djylb/nps/lib/common"
 	"github.com/djylb/nps/lib/file"
 )
@@ -23,39 +23,39 @@ func TestServerConfig() {
 		}
 		return true
 	})
-	p, err := beego.AppConfig.Int("web_port")
+	p, err := appconfig.AppConfig().Int("web_port")
 	if err != nil {
 		log.Fatalln("Getting web management port error :", err)
 	} else {
 		isInArr(&postTcpArr, p, "Web Management port", "tcp")
 	}
 
-	if p := beego.AppConfig.String("bridge_port"); p != "" {
+	if p := appconfig.AppConfig().String("bridge_port"); p != "" {
 		if port, err := strconv.Atoi(p); err != nil {
 			log.Fatalln("get Server and client communication portserror:", err)
-		} else if beego.AppConfig.String("bridge_type") == "kcp" {
+		} else if appconfig.AppConfig().String("bridge_type") == "kcp" {
 			isInArr(&postUdpArr, port, "Server and client communication ports", "udp")
 		} else {
 			isInArr(&postTcpArr, port, "Server and client communication ports", "tcp")
 		}
 	}
 
-	if p := beego.AppConfig.String("httpProxyPort"); p != "" {
+	if p := appconfig.AppConfig().String("httpProxyPort"); p != "" {
 		if port, err := strconv.Atoi(p); err != nil {
 			log.Fatalln("get http port error:", err)
 		} else {
 			isInArr(&postTcpArr, port, "https port", "tcp")
 		}
 	}
-	if p := beego.AppConfig.String("https_proxy_port"); p != "" {
+	if p := appconfig.AppConfig().String("https_proxy_port"); p != "" {
 		if port, err := strconv.Atoi(p); err != nil {
 			log.Fatalln("get https port error", err)
 		} else {
-			if beego.AppConfig.String("pemPath") != "" && !common.FileExists(filepath.Join(common.GetRunPath(), beego.AppConfig.String("pemPath"))) {
-				log.Fatalf("ssl certFile %s is not exist", beego.AppConfig.String("pemPath"))
+			if appconfig.AppConfig().String("pemPath") != "" && !common.FileExists(filepath.Join(common.GetRunPath(), appconfig.AppConfig().String("pemPath"))) {
+				log.Fatalf("ssl certFile %s is not exist", appconfig.AppConfig().String("pemPath"))
 			}
-			if beego.AppConfig.String("keyPath") != "" && !common.FileExists(filepath.Join(common.GetRunPath(), beego.AppConfig.String("keyPath"))) {
-				log.Fatalf("ssl keyFile %s is not exist", beego.AppConfig.String("keyPath"))
+			if appconfig.AppConfig().String("keyPath") != "" && !common.FileExists(filepath.Join(common.GetRunPath(), appconfig.AppConfig().String("keyPath"))) {
+				log.Fatalf("ssl keyFile %s is not exist", appconfig.AppConfig().String("keyPath"))
 			}
 			isInArr(&postTcpArr, port, "http port", "tcp")
 		}

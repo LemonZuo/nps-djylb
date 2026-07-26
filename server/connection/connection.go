@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/beego/beego"
+	"github.com/djylb/nps/lib/appconfig"
 	"github.com/djylb/nps/lib/logs"
 	"github.com/djylb/nps/lib/mux"
 	"github.com/djylb/nps/lib/pmux"
@@ -47,38 +47,38 @@ var QuicMaxStreams int64
 var MuxPingIntervalSec int
 
 func InitConnectionService() {
-	BridgeIp = beego.AppConfig.DefaultString("bridge_ip", beego.AppConfig.DefaultString("bridge_tcp_ip", "0.0.0.0"))
-	BridgeHost = beego.AppConfig.DefaultString("bridge_host", "")
-	BridgeTcpIp = beego.AppConfig.DefaultString("bridge_tcp_ip", BridgeIp)
-	BridgeKcpIp = beego.AppConfig.DefaultString("bridge_kcp_ip", BridgeIp)
-	BridgeQuicIp = beego.AppConfig.DefaultString("bridge_quic_ip", BridgeIp)
-	BridgeTlsIp = beego.AppConfig.DefaultString("bridge_tls_ip", BridgeIp)
-	BridgeWsIp = beego.AppConfig.DefaultString("bridge_ws_ip", BridgeIp)
-	BridgeWssIp = beego.AppConfig.DefaultString("bridge_wss_ip", BridgeIp)
-	BridgePort = beego.AppConfig.DefaultInt("bridge_port", beego.AppConfig.DefaultInt("bridge_tcp_port", 0))
-	BridgeTcpPort = beego.AppConfig.DefaultInt("bridge_tcp_port", BridgePort)
-	BridgeKcpPort = beego.AppConfig.DefaultInt("bridge_kcp_port", BridgePort)
-	BridgeQuicPort = beego.AppConfig.DefaultInt("bridge_quic_port", 0)
-	BridgeTlsPort = beego.AppConfig.DefaultInt("bridge_tls_port", beego.AppConfig.DefaultInt("tls_bridge_port", 0))
-	BridgeWsPort = beego.AppConfig.DefaultInt("bridge_ws_port", 0)
-	BridgeWssPort = beego.AppConfig.DefaultInt("bridge_wss_port", 0)
-	BridgePath = beego.AppConfig.DefaultString("bridge_path", "/ws")
-	BridgeTrustedIps = beego.AppConfig.String("bridge_trusted_ips")
-	BridgeRealIpHeader = beego.AppConfig.String("bridge_real_ip_header")
-	HttpIp = beego.AppConfig.DefaultString("http_proxy_ip", "0.0.0.0")
-	HttpPort = beego.AppConfig.DefaultInt("http_proxy_port", 0)
-	HttpsPort = beego.AppConfig.DefaultInt("https_proxy_port", 0)
-	Http3Port = beego.AppConfig.DefaultInt("http3_proxy_port", HttpsPort)
-	WebIp = beego.AppConfig.DefaultString("web_ip", "0.0.0.0")
-	WebPort = beego.AppConfig.DefaultInt("web_port", 0)
-	P2pIp = beego.AppConfig.DefaultString("p2p_ip", "0.0.0.0")
-	P2pPort = beego.AppConfig.DefaultInt("p2p_port", 0)
-	quicAlpnList := beego.AppConfig.DefaultString("quic_alpn", "nps")
+	BridgeIp = appconfig.AppConfig().DefaultString("bridge_ip", appconfig.AppConfig().DefaultString("bridge_tcp_ip", "0.0.0.0"))
+	BridgeHost = appconfig.AppConfig().DefaultString("bridge_host", "")
+	BridgeTcpIp = appconfig.AppConfig().DefaultString("bridge_tcp_ip", BridgeIp)
+	BridgeKcpIp = appconfig.AppConfig().DefaultString("bridge_kcp_ip", BridgeIp)
+	BridgeQuicIp = appconfig.AppConfig().DefaultString("bridge_quic_ip", BridgeIp)
+	BridgeTlsIp = appconfig.AppConfig().DefaultString("bridge_tls_ip", BridgeIp)
+	BridgeWsIp = appconfig.AppConfig().DefaultString("bridge_ws_ip", BridgeIp)
+	BridgeWssIp = appconfig.AppConfig().DefaultString("bridge_wss_ip", BridgeIp)
+	BridgePort = appconfig.AppConfig().DefaultInt("bridge_port", appconfig.AppConfig().DefaultInt("bridge_tcp_port", 0))
+	BridgeTcpPort = appconfig.AppConfig().DefaultInt("bridge_tcp_port", BridgePort)
+	BridgeKcpPort = appconfig.AppConfig().DefaultInt("bridge_kcp_port", BridgePort)
+	BridgeQuicPort = appconfig.AppConfig().DefaultInt("bridge_quic_port", 0)
+	BridgeTlsPort = appconfig.AppConfig().DefaultInt("bridge_tls_port", appconfig.AppConfig().DefaultInt("tls_bridge_port", 0))
+	BridgeWsPort = appconfig.AppConfig().DefaultInt("bridge_ws_port", 0)
+	BridgeWssPort = appconfig.AppConfig().DefaultInt("bridge_wss_port", 0)
+	BridgePath = appconfig.AppConfig().DefaultString("bridge_path", "/ws")
+	BridgeTrustedIps = appconfig.AppConfig().String("bridge_trusted_ips")
+	BridgeRealIpHeader = appconfig.AppConfig().String("bridge_real_ip_header")
+	HttpIp = appconfig.AppConfig().DefaultString("http_proxy_ip", "0.0.0.0")
+	HttpPort = appconfig.AppConfig().DefaultInt("http_proxy_port", 0)
+	HttpsPort = appconfig.AppConfig().DefaultInt("https_proxy_port", 0)
+	Http3Port = appconfig.AppConfig().DefaultInt("http3_proxy_port", HttpsPort)
+	WebIp = appconfig.AppConfig().DefaultString("web_ip", "0.0.0.0")
+	WebPort = appconfig.AppConfig().DefaultInt("web_port", 0)
+	P2pIp = appconfig.AppConfig().DefaultString("p2p_ip", "0.0.0.0")
+	P2pPort = appconfig.AppConfig().DefaultInt("p2p_port", 0)
+	quicAlpnList := appconfig.AppConfig().DefaultString("quic_alpn", "nps")
 	QuicAlpn = strings.Split(quicAlpnList, ",")
-	QuicKeepAliveSec = beego.AppConfig.DefaultInt("quic_keep_alive_period", 10)
-	QuicIdleTimeoutSec = beego.AppConfig.DefaultInt("quic_max_idle_timeout", 30)
-	QuicMaxStreams = beego.AppConfig.DefaultInt64("quic_max_incoming_streams", 100000)
-	MuxPingIntervalSec = beego.AppConfig.DefaultInt("mux_ping_interval", 5)
+	QuicKeepAliveSec = appconfig.AppConfig().DefaultInt("quic_keep_alive_period", 10)
+	QuicIdleTimeoutSec = appconfig.AppConfig().DefaultInt("quic_max_idle_timeout", 30)
+	QuicMaxStreams = appconfig.AppConfig().DefaultInt64("quic_max_incoming_streams", 100000)
+	MuxPingIntervalSec = appconfig.AppConfig().DefaultInt("mux_ping_interval", 5)
 	mux.PingInterval = time.Duration(MuxPingIntervalSec) * time.Second
 
 	if BridgePort != 0 && (HttpPort == BridgePort || HttpsPort == BridgePort || WebPort == BridgePort || BridgeTlsPort == BridgePort) {
@@ -86,7 +86,7 @@ func InitConnectionService() {
 			logs.Error("Invalid bridge port %d", BridgePort)
 			os.Exit(0)
 		}
-		pMux = pmux.NewPortMux(BridgePort, beego.AppConfig.String("web_host"), beego.AppConfig.String("bridge_host"))
+		pMux = pmux.NewPortMux(BridgePort, appconfig.AppConfig().String("web_host"), appconfig.AppConfig().String("bridge_host"))
 	}
 }
 

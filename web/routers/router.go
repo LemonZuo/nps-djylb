@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"github.com/beego/beego"
+
+	"github.com/djylb/nps/lib/appconfig"
 	"github.com/djylb/nps/web/controllers"
 )
 
@@ -13,7 +15,7 @@ func Init() {
 		rw.WriteHeader(http.StatusNotFound)
 	})
 	controllers.InitLogin()
-	webBaseUrl := beego.AppConfig.String("web_base_url")
+	webBaseUrl := appconfig.AppConfig().String("web_base_url")
 	if len(webBaseUrl) > 0 {
 		ns := beego.NewNamespace(webBaseUrl,
 			beego.NSRouter("/", &controllers.IndexController{}, "*:Index"),

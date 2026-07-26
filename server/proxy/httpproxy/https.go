@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/beego/beego"
+	"github.com/djylb/nps/lib/appconfig"
 	"github.com/djylb/nps/lib/cache"
 	"github.com/djylb/nps/lib/common"
 	"github.com/djylb/nps/lib/conn"
@@ -42,16 +42,16 @@ func NewHttpsServer(httpServer *HttpServer, l net.Listener) *HttpsServer {
 		HttpServer:      httpServer,
 		httpsStatus:     false,
 		httpsListener:   l,
-		defaultCertFile: beego.AppConfig.String("https_default_cert_file"),
-		defaultKeyFile:  beego.AppConfig.String("https_default_key_file"),
+		defaultCertFile: appconfig.AppConfig().String("https_default_cert_file"),
+		defaultKeyFile:  appconfig.AppConfig().String("https_default_key_file"),
 	}
 
 	_, https.hasDefaultCert = common.LoadCert(https.defaultCertFile, https.defaultKeyFile)
 	https.defaultCertHash = crypt.FNV1a64("file", https.defaultCertFile, https.defaultKeyFile)
 
-	maxNum := beego.AppConfig.DefaultInt("ssl_cache_max", 0)
-	reload := beego.AppConfig.DefaultInt("ssl_cache_reload", 0)
-	idle := beego.AppConfig.DefaultInt("ssl_cache_idle", 60)
+	maxNum := appconfig.AppConfig().DefaultInt("ssl_cache_max", 0)
+	reload := appconfig.AppConfig().DefaultInt("ssl_cache_reload", 0)
+	idle := appconfig.AppConfig().DefaultInt("ssl_cache_idle", 60)
 	https.cert = cache.NewCertManager(maxNum, time.Duration(reload)*time.Second, time.Duration(idle)*time.Minute)
 	https.httpsServeListener = NewHttpsListener(l)
 	https.httpsServer = https.NewServer(https.HttpsPort, "https")

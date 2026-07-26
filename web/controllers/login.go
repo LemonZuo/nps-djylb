@@ -10,6 +10,8 @@ import (
 	"github.com/beego/beego"
 	"github.com/beego/beego/cache"
 	"github.com/beego/beego/utils/captcha"
+
+	"github.com/djylb/nps/lib/appconfig"
 	"github.com/djylb/nps/lib/common"
 	"github.com/djylb/nps/lib/crypt"
 	"github.com/djylb/nps/lib/file"
@@ -51,23 +53,23 @@ type BanRecord struct {
 }
 
 func InitLogin() {
-	secureMode = beego.AppConfig.DefaultBool("secure_mode", false)
-	forcePow = beego.AppConfig.DefaultBool("force_pow", false)
-	powBits = beego.AppConfig.DefaultInt("pow_bits", 20)
+	secureMode = appconfig.AppConfig().DefaultBool("secure_mode", false)
+	forcePow = appconfig.AppConfig().DefaultBool("force_pow", false)
+	powBits = appconfig.AppConfig().DefaultInt("pow_bits", 20)
 
-	BanTime = beego.AppConfig.DefaultInt64("login_ban_time", 5)
-	IpBanTime = beego.AppConfig.DefaultInt64("login_ip_ban_time", 180)
-	UserBanTime = beego.AppConfig.DefaultInt64("login_user_ban_time", 3600)
-	MaxFailTimes = beego.AppConfig.DefaultInt("login_max_fail_times", 10)
-	MaxLoginBody = beego.AppConfig.DefaultInt64("login_max_body", 1024)
-	MaxSkew = beego.AppConfig.DefaultInt64("login_max_skew", 5*60*1000)
+	BanTime = appconfig.AppConfig().DefaultInt64("login_ban_time", 5)
+	IpBanTime = appconfig.AppConfig().DefaultInt64("login_ip_ban_time", 180)
+	UserBanTime = appconfig.AppConfig().DefaultInt64("login_user_ban_time", 3600)
+	MaxFailTimes = appconfig.AppConfig().DefaultInt("login_max_fail_times", 10)
+	MaxLoginBody = appconfig.AppConfig().DefaultInt64("login_max_body", 1024)
+	MaxSkew = appconfig.AppConfig().DefaultInt64("login_max_skew", 5*60*1000)
 
 	//rand.Seed(time.Now().UnixNano())
 	startLoginRecordCleaner()
 
 	// use beego cache system store the captcha data
 	store := cache.NewMemoryCache()
-	cpt = captcha.NewWithFilter(beego.AppConfig.String("web_base_url")+"/captcha/", store)
+	cpt = captcha.NewWithFilter(appconfig.AppConfig().String("web_base_url")+"/captcha/", store)
 	cpt.ChallengeNums = 4
 	cpt.StdWidth = 100
 	cpt.StdHeight = 50
@@ -87,7 +89,7 @@ func startLoginRecordCleaner() {
 
 func (s *LoginController) Index() {
 	// Try login implicitly, will succeed if it's configured as no-auth(empty username&password).
-	webBaseUrl := beego.AppConfig.String("web_base_url")
+	webBaseUrl := appconfig.AppConfig().String("web_base_url")
 	if s.doLogin("", "", "", false) {
 		s.Redirect(webBaseUrl+"/index/index", 302)
 		return
@@ -101,11 +103,11 @@ func (s *LoginController) Index() {
 	s.Data["public_key"], _ = crypt.GetRSAPublicKeyPEM()
 	s.Data["login_delay"] = BanTime * 1000
 	s.Data["web_base_url"] = webBaseUrl
-	s.Data["head_custom_code"] = template.HTML(beego.AppConfig.String("head_custom_code"))
+	s.Data["head_custom_code"] = template.HTML(appconfig.AppConfig().String("head_custom_code"))
 	s.Data["version"] = server.GetVersion()
 	s.Data["year"] = server.GetCurrentYear()
-	s.Data["register_allow"], _ = beego.AppConfig.Bool("allow_user_register")
-	s.Data["captcha_open"], _ = beego.AppConfig.Bool("open_captcha")
+	s.Data["register_allow"], _ = appconfig.AppConfig().Bool("allow_user_register")
+	s.Data["captcha_open"], _ = appconfig.AppConfig().Bool("open_captcha")
 	s.TplName = "login/index.html"
 }
 
@@ -122,8 +124,8 @@ func (s *LoginController) Verify() {
 	username := s.GetString("username")
 	ip, _, _ := net.SplitHostPort(s.Ctx.Request.RemoteAddr)
 
-	httpOnlyPass := beego.AppConfig.String("x_nps_http_only")
-	if (beego.AppConfig.DefaultBool("allow_x_real_ip", false) && common.IsTrustedProxy(beego.AppConfig.DefaultString("trusted_proxy_ips", "127.0.0.1"), ip)) ||
+	httpOnlyPass := appconfig.AppConfig().String("x_nps_http_only")
+	if (appconfig.AppConfig().DefaultBool("allow_x_real_ip", false) && common.IsTrustedProxy(appconfig.AppConfig().DefaultString("trusted_proxy_ips", "127.0.0.1"), ip)) ||
 		(httpOnlyPass != "" && s.Ctx.Request.Header.Get("X-NPS-Http-Only") == httpOnlyPass) {
 		if realIP := s.Ctx.Request.Header.Get("X-Real-IP"); realIP != "" {
 			ip = realIP
@@ -134,7 +136,7 @@ func (s *LoginController) Verify() {
 	isUserBan := IsLoginBan(username, UserBanTime)
 
 	totpCode := ""
-	captchaOpen, _ := beego.AppConfig.Bool("open_captcha")
+	captchaOpen, _ := appconfig.AppConfig().Bool("open_captcha")
 	cptVerify := true
 	if captchaOpen {
 		cptId := s.GetString(cpt.FieldIDName)
@@ -227,8 +229,8 @@ func (s *LoginController) doLogin(username, password, totp string, explicit bool
 	CleanBanRecord(false)
 
 	ip, _, _ := net.SplitHostPort(s.Ctx.Request.RemoteAddr)
-	httpOnlyPass := beego.AppConfig.String("x_nps_http_only")
-	if (beego.AppConfig.DefaultBool("allow_x_real_ip", false) && common.IsTrustedProxy(beego.AppConfig.DefaultString("trusted_proxy_ips", "127.0.0.1"), ip)) ||
+	httpOnlyPass := appconfig.AppConfig().String("x_nps_http_only")
+	if (appconfig.AppConfig().DefaultBool("allow_x_real_ip", false) && common.IsTrustedProxy(appconfig.AppConfig().DefaultString("trusted_proxy_ips", "127.0.0.1"), ip)) ||
 		(httpOnlyPass != "" && s.Ctx.Request.Header.Get("X-NPS-Http-Only") == httpOnlyPass) {
 		if realIP := s.Ctx.Request.Header.Get("X-Real-IP"); realIP != "" {
 			ip = realIP
@@ -248,9 +250,9 @@ func (s *LoginController) doLogin(username, password, totp string, explicit bool
 		server.Bridge.Register.Store(common.GetIpByAddr(s.Ctx.Input.IP()), time.Now().Add(time.Hour*time.Duration(2)))
 	}
 
-	b, err := beego.AppConfig.Bool("allow_user_login")
+	b, err := appconfig.AppConfig().Bool("allow_user_login")
 	if err == nil && b && !auth && username != "" && password != "" {
-		allowVkey := beego.AppConfig.DefaultBool("allow_user_vkey_login", b)
+		allowVkey := appconfig.AppConfig().DefaultBool("allow_user_vkey_login", b)
 		file.GetDb().JsonDb.Clients.Range(func(key, value interface{}) bool {
 			v := value.(*file.Client)
 			if !v.Status || v.NoDisplay {
@@ -354,14 +356,14 @@ func (s *LoginController) Register() {
 		s.SetSession("login_nonce", nonce)
 		s.Data["login_nonce"] = nonce
 		s.Data["public_key"], _ = crypt.GetRSAPublicKeyPEM()
-		s.Data["web_base_url"] = beego.AppConfig.String("web_base_url")
-		s.Data["head_custom_code"] = template.HTML(beego.AppConfig.String("head_custom_code"))
+		s.Data["web_base_url"] = appconfig.AppConfig().String("web_base_url")
+		s.Data["head_custom_code"] = template.HTML(appconfig.AppConfig().String("head_custom_code"))
 		s.Data["version"] = server.GetVersion()
 		s.Data["year"] = server.GetCurrentYear()
-		s.Data["captcha_open"], _ = beego.AppConfig.Bool("open_captcha")
+		s.Data["captcha_open"], _ = appconfig.AppConfig().Bool("open_captcha")
 		s.TplName = "login/register.html"
 	} else {
-		if b, err := beego.AppConfig.Bool("allow_user_register"); err != nil || !b {
+		if b, err := appconfig.AppConfig().Bool("allow_user_register"); err != nil || !b {
 			s.Data["json"] = map[string]interface{}{"status": 0, "msg": "register is not allow"}
 			s.ServeJSON()
 			return
@@ -369,12 +371,12 @@ func (s *LoginController) Register() {
 		nonce := crypt.GetRandomString(16)
 		stored := s.GetSession("login_nonce")
 		s.SetSession("login_nonce", nonce)
-		if s.GetString("username") == "" || s.GetString("password") == "" || s.GetString("username") == beego.AppConfig.String("web_username") {
+		if s.GetString("username") == "" || s.GetString("password") == "" || s.GetString("username") == appconfig.AppConfig().String("web_username") {
 			s.Data["json"] = map[string]interface{}{"status": 0, "msg": "please check your input", "nonce": nonce}
 			s.ServeJSON()
 			return
 		}
-		captchaOpen, _ := beego.AppConfig.Bool("open_captcha")
+		captchaOpen, _ := appconfig.AppConfig().Bool("open_captcha")
 		if captchaOpen {
 			if !cpt.VerifyReq(s.Ctx.Request) {
 				s.Data["json"] = map[string]interface{}{"status": 0, "msg": "the verification code is wrong, please get it again and try again", "nonce": nonce}
@@ -423,7 +425,7 @@ func (s *LoginController) Register() {
 
 func (s *LoginController) Out() {
 	s.SetSession("auth", false)
-	s.Redirect(beego.AppConfig.String("web_base_url")+"/login/index", 302)
+	s.Redirect(appconfig.AppConfig().String("web_base_url")+"/login/index", 302)
 }
 
 // GetLoginBanList 获取当前所有封禁记录
@@ -510,13 +512,13 @@ func CleanBanRecord(force bool) {
 
 func adminAuth(username, password, totp string) bool {
 	//logs.Error("login %s %s", username, password)
-	expectedUser := beego.AppConfig.String("web_username")
+	expectedUser := appconfig.AppConfig().String("web_username")
 	if username != expectedUser {
 		//logs.Error("username is wrong")
 		return false
 	}
-	totpSecret := beego.AppConfig.String("totp_secret")
-	expectedPass := beego.AppConfig.String("web_password")
+	totpSecret := appconfig.AppConfig().String("totp_secret")
+	expectedPass := appconfig.AppConfig().String("web_password")
 	if totpSecret != "" {
 		ok := false
 		if totp != "" {

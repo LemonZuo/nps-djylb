@@ -7,7 +7,9 @@ import (
 	"unsafe"
 
 	"github.com/beego/beego"
+
 	"github.com/djylb/nps/bridge"
+	"github.com/djylb/nps/lib/appconfig"
 	"github.com/djylb/nps/lib/common"
 	"github.com/djylb/nps/lib/conn"
 	"github.com/djylb/nps/lib/logs"
@@ -33,7 +35,7 @@ func (s *WebServer) Start() error {
 	p := connection.WebPort
 
 	beego.BConfig.WebConfig.Session.SessionOn = true
-	beego.SetStaticPath(beego.AppConfig.String("web_base_url")+"/static", filepath.Join(common.GetRunPath(), "web", "static"))
+	beego.SetStaticPath(appconfig.AppConfig().String("web_base_url")+"/static", filepath.Join(common.GetRunPath(), "web", "static"))
 	beego.SetViewsPath(filepath.Join(common.GetRunPath(), "web", "views"))
 	initBeforeHTTPRun()
 
@@ -54,9 +56,9 @@ func (s *WebServer) Start() error {
 		if l, err := connection.GetWebManagerListener(); err == nil {
 			s.tcpListener = l
 			go func() {
-				if beego.AppConfig.String("web_open_ssl") == "true" {
-					keyPath := beego.AppConfig.String("web_key_file")
-					certPath := beego.AppConfig.String("web_cert_file")
+				if appconfig.AppConfig().String("web_open_ssl") == "true" {
+					keyPath := appconfig.AppConfig().String("web_key_file")
+					certPath := appconfig.AppConfig().String("web_cert_file")
 					errCh <- http.ServeTLS(l, beego.BeeApp.Handlers, certPath, keyPath)
 				} else {
 					errCh <- http.Serve(l, beego.BeeApp.Handlers)

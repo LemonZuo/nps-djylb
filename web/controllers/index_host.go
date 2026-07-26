@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/beego/beego"
+	"github.com/djylb/nps/lib/appconfig"
 	"github.com/djylb/nps/lib/common"
 	"github.com/djylb/nps/lib/crypt"
 	"github.com/djylb/nps/lib/file"
@@ -13,8 +13,8 @@ import (
 
 func (s *IndexController) HostList() {
 	if s.Ctx.Request.Method == "GET" {
-		s.Data["httpProxyPort"] = beego.AppConfig.String("http_proxy_port")
-		s.Data["httpsProxyPort"] = beego.AppConfig.String("https_proxy_port")
+		s.Data["httpProxyPort"] = appconfig.AppConfig().String("http_proxy_port")
+		s.Data["httpsProxyPort"] = appconfig.AppConfig().String("https_proxy_port")
 		s.Data["client_id"] = s.getEscapeString("client_id")
 		s.Data["menu"] = "host"
 		s.SetInfo("host list")
@@ -112,7 +112,7 @@ func (s *IndexController) AddHost() {
 	} else {
 		id := int(file.GetDb().JsonDb.GetHostId())
 		isAdmin := s.GetSession("isAdmin").(bool)
-		allowLocal := beego.AppConfig.DefaultBool("allow_user_local", beego.AppConfig.DefaultBool("allow_local_proxy", false)) || isAdmin
+		allowLocal := appconfig.AppConfig().DefaultBool("allow_user_local", appconfig.AppConfig().DefaultBool("allow_local_proxy", false)) || isAdmin
 		clientId := s.GetIntNoErr("client_id")
 		targetStr := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(s.getEscapeString("target"), "\r\n", "\n")))
 		if !isAdmin && strings.Contains(targetStr, "bridge://") {
@@ -211,7 +211,7 @@ func (s *IndexController) EditHost() {
 				h.Client = client
 			}
 			isAdmin := s.GetSession("isAdmin").(bool)
-			allowLocal := beego.AppConfig.DefaultBool("allow_user_local", beego.AppConfig.DefaultBool("allow_local_proxy", false)) || isAdmin
+			allowLocal := appconfig.AppConfig().DefaultBool("allow_user_local", appconfig.AppConfig().DefaultBool("allow_local_proxy", false)) || isAdmin
 			targetStr := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(s.getEscapeString("target"), "\r\n", "\n")))
 			if !isAdmin && strings.Contains(targetStr, "bridge://") {
 				if h.Target != nil {

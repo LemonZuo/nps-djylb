@@ -6,13 +6,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/beego/beego"
+	"github.com/skip2/go-qrcode"
+
+	"github.com/djylb/nps/lib/appconfig"
 	"github.com/djylb/nps/lib/common"
 	"github.com/djylb/nps/lib/crypt"
 	"github.com/djylb/nps/lib/file"
 	"github.com/djylb/nps/lib/rate"
 	"github.com/djylb/nps/server"
-	"github.com/skip2/go-qrcode"
 )
 
 type ClientController struct {
@@ -133,7 +134,7 @@ func (s *ClientController) Edit() {
 			return
 		} else {
 			if s.getEscapeString("web_username") != "" {
-				if s.getEscapeString("web_username") == beego.AppConfig.String("web_username") || !file.GetDb().VerifyUserName(s.getEscapeString("web_username"), c.Id) {
+				if s.getEscapeString("web_username") == appconfig.AppConfig().String("web_username") || !file.GetDb().VerifyUserName(s.getEscapeString("web_username"), c.Id) {
 					s.AjaxErr("web login username duplicate, please reset")
 					return
 				}
@@ -161,7 +162,7 @@ func (s *ClientController) Edit() {
 			c.Cnf.P = s.getEscapeString("p")
 			c.Cnf.Compress = common.GetBoolByStr(s.getEscapeString("compress"))
 			c.Cnf.Crypt = s.GetBoolNoErr("crypt")
-			b, err := beego.AppConfig.Bool("allow_user_change_username")
+			b, err := appconfig.AppConfig().Bool("allow_user_change_username")
 			if s.GetSession("isAdmin").(bool) || (err == nil && b) {
 				c.WebUserName = s.getEscapeString("web_username")
 			}
@@ -336,7 +337,7 @@ func (s *ClientController) Qr() {
 			text = decoded
 		}
 	} else {
-		issuer := beego.AppConfig.String("appname")
+		issuer := appconfig.AppConfig().String("appname")
 		text = crypt.BuildTotpUri(issuer, account, secret)
 	}
 	png, err := qrcode.Encode(text, qrcode.Medium, 256)

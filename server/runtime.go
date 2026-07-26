@@ -7,17 +7,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/beego/beego"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/load"
+	"github.com/shirou/gopsutil/v4/mem"
+	"github.com/shirou/gopsutil/v4/net"
+
 	"github.com/djylb/nps/bridge"
+	"github.com/djylb/nps/lib/appconfig"
 	"github.com/djylb/nps/lib/common"
 	"github.com/djylb/nps/lib/file"
 	"github.com/djylb/nps/lib/version"
 	"github.com/djylb/nps/server/connection"
 	"github.com/djylb/nps/server/tool"
-	"github.com/shirou/gopsutil/v4/cpu"
-	"github.com/shirou/gopsutil/v4/load"
-	"github.com/shirou/gopsutil/v4/mem"
-	"github.com/shirou/gopsutil/v4/net"
 )
 
 var (
@@ -189,7 +190,7 @@ func GetDashboardData(force bool) map[string]interface{} {
 	data["minVersion"] = GetMinVersion()
 	data["hostCount"] = common.GetSyncMapLen(&file.GetDb().JsonDb.Hosts)
 	data["clientCount"] = common.GetSyncMapLen(&file.GetDb().JsonDb.Clients)
-	if beego.AppConfig.String("public_vkey") != "" { // remove public vkey
+	if appconfig.AppConfig().String("public_vkey") != "" { // remove public vkey
 		data["clientCount"] = data["clientCount"].(int) - 1
 	}
 
@@ -251,22 +252,22 @@ func GetDashboardData(force bool) map[string]interface{} {
 	data["secretCount"] = secretN
 	data["p2pCount"] = p2pN
 
-	bridgeType := beego.AppConfig.String("bridge_type")
+	bridgeType := appconfig.AppConfig().String("bridge_type")
 	if bridgeType == "both" {
 		bridgeType = "tcp"
 	}
 	data["bridgeType"] = bridgeType
-	data["httpProxyPort"] = beego.AppConfig.String("http_proxy_port")
-	data["httpsProxyPort"] = beego.AppConfig.String("https_proxy_port")
-	data["ipLimit"] = beego.AppConfig.String("ip_limit")
-	data["flowStoreInterval"] = beego.AppConfig.String("flow_store_interval")
+	data["httpProxyPort"] = appconfig.AppConfig().String("http_proxy_port")
+	data["httpsProxyPort"] = appconfig.AppConfig().String("https_proxy_port")
+	data["ipLimit"] = appconfig.AppConfig().String("ip_limit")
+	data["flowStoreInterval"] = appconfig.AppConfig().String("flow_store_interval")
 	data["serverIp"] = common.GetServerIp(connection.P2pIp)
 	data["serverIpv4"] = common.GetOutboundIPv4().String()
 	data["serverIpv6"] = common.GetOutboundIPv6().String()
 	data["p2pIp"] = connection.P2pIp
 	data["p2pPort"] = connection.P2pPort
 	data["p2pAddr"] = common.BuildAddress(common.GetServerIp(connection.P2pIp), strconv.Itoa(connection.P2pPort))
-	data["logLevel"] = beego.AppConfig.String("log_level")
+	data["logLevel"] = appconfig.AppConfig().String("log_level")
 	data["upTime"] = common.GetRunTime()
 	data["upSecs"] = common.GetRunSecs()
 	data["startTime"] = common.GetStartTime()

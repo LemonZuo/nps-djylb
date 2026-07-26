@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 
 	"github.com/beego/beego"
+
+	"github.com/djylb/nps/lib/appconfig"
 	"github.com/djylb/nps/lib/common"
 	"github.com/djylb/nps/lib/crypt"
 )
@@ -18,11 +20,11 @@ func (s *AuthController) GetAuthKey() {
 		s.Data["json"] = m
 		s.ServeJSON()
 	}()
-	if cryptKey := beego.AppConfig.String("auth_crypt_key"); len(cryptKey) != 16 {
+	if cryptKey := appconfig.AppConfig().String("auth_crypt_key"); len(cryptKey) != 16 {
 		m["status"] = 0
 		return
 	} else {
-		b, err := crypt.AesEncrypt([]byte(beego.AppConfig.String("auth_key")), []byte(cryptKey))
+		b, err := crypt.AesEncrypt([]byte(appconfig.AppConfig().String("auth_key")), []byte(cryptKey))
 		if err != nil {
 			m["status"] = 0
 			return

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/beego/beego"
+	"github.com/djylb/nps/lib/appconfig"
 	"github.com/djylb/nps/lib/common"
 )
 
@@ -19,7 +19,7 @@ func init() {
 	go func() {
 		for {
 			<-s
-			_ = beego.LoadAppConfig("ini", filepath.Join(common.GetRunPath(), "conf", "nps.conf"))
+			_ = appconfig.LoadAppConfig("ini", filepath.Join(common.GetRunPath(), "conf", "nps.conf"))
 		}
 	}()
 }

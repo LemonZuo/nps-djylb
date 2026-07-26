@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/beego/beego"
+	"github.com/djylb/nps/lib/appconfig"
 	"github.com/djylb/nps/lib/mux"
 )
 
@@ -65,7 +65,7 @@ quic_max_incoming_streams = 999
 mux_ping_interval = 8
 `)
 
-	if err := beego.LoadAppConfig("ini", configPath); err != nil {
+	if err := appconfig.LoadAppConfig("ini", configPath); err != nil {
 		t.Fatalf("load app config: %v", err)
 	}
 	pMux = nil
