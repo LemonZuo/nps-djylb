@@ -3,6 +3,13 @@ set -e
 
 export GOPROXY=direct
 
+# The admin UI is embedded into nps via go:embed; run `pnpm build` in web/ui
+# first (CI does this in a dedicated step) or every server binary ships blank.
+if [ ! -f web/dist/index.html ]; then
+  echo "web/dist/index.html missing - build the admin UI first (cd web/ui && pnpm install && pnpm build)" >&2
+  exit 1
+fi
+
 CURRENT_GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
 go mod edit -go=$CURRENT_GO_VERSION
 go mod tidy
@@ -42,7 +49,7 @@ TARGETS=(
 )
 
 NPC_TAR_FILES="conf/npc.conf conf/multi_account.conf"
-NPS_TAR_FILES="conf/nps.conf web/views web/static"
+NPS_TAR_FILES="conf/nps.conf"
 
 SDK_TARGETS=(
   "windows 386 i686-w64-mingw32-gcc"

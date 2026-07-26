@@ -29,6 +29,24 @@ jobs:
             dep ensure
           fi
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/ui/pnpm-lock.yaml
+
+      - name: Build admin UI
+        working-directory: web/ui
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
       - name: Build
         run: |
           chmod +x build.assets.sh
@@ -102,6 +120,24 @@ jobs:
             curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
             dep ensure
           fi
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/ui/pnpm-lock.yaml
+
+      - name: Build admin UI
+        working-directory: web/ui
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
 
       - name: Build (old)
         run: |

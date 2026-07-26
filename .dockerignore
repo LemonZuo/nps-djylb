@@ -7,3 +7,5 @@ tmp-*
 build
 bin-download
 docker-context
+web/ui/node_modules
+web/dist

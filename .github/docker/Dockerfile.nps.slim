@@ -5,7 +5,6 @@ ARG TARGETARCH
 RUN apk add --no-cache tzdata nano ca-certificates && update-ca-certificates
 WORKDIR /
 COPY bin/nps-${TARGETARCH} /nps
-COPY web/ /web/
 COPY conf/nps.conf /nps.conf.sample
 COPY entrypoint_nps.sh /entrypoint.sh
 RUN chmod +x /nps /entrypoint.sh

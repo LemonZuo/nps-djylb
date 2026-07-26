@@ -26,6 +26,27 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
+      - name: Set up pnpm
+        if: matrix.image == 'nps'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Set up Node
+        if: matrix.image == 'nps'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/ui/pnpm-lock.yaml
+
+      - name: Build admin UI
+        if: matrix.image == 'nps'
+        working-directory: web/ui
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
       - name: Build ${{ matrix.image }}
         env:
           GOOS: linux
@@ -80,9 +101,7 @@ jobs:
           cp bin-download/${{ matrix.image }}-arm64 docker-context/bin/${{ matrix.image }}-arm64
           chmod +x docker-context/bin/*
           if [ "${{ matrix.image }}" = "nps" ]; then
-            mkdir -p docker-context/web docker-context/conf
-            cp -r web/static docker-context/web/
-            cp -r web/views docker-context/web/
+            mkdir -p docker-context/conf
             cp conf/nps.conf docker-context/conf/nps.conf
             cp .github/docker/entrypoint_nps.sh docker-context/entrypoint_nps.sh
           fi
