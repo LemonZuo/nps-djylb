@@ -130,7 +130,9 @@ function lineOption(
       trigger: "axis",
       valueFormatter: yFormatter ? (v) => yFormatter(Number(v)) : undefined,
     },
-    legend: series.length > 1 ? { data: series.map((s) => s.name) } : undefined,
+    // echarts 6 defaults the legend to the bottom, where it collides with the
+    // x-axis labels; pin it into the 32px band the grid reserves at the top.
+    legend: series.length > 1 ? { top: 0, data: series.map((s) => s.name) } : undefined,
     grid: LINE_GRID,
     xAxis: { type: "category", boundaryGap: false, data: times },
     yAxis: {
