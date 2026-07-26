@@ -1,9 +1,11 @@
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
+  ChevronDown,
+  ChevronRight,
   Eraser,
   KeyRound,
   Pencil,
@@ -18,7 +20,14 @@ import { apiBasePath, getToken } from "@/api/http"
 import type { ClientView } from "@/api/types"
 import { useAuth } from "@/auth/AuthContext"
 import { useConfirm } from "@/components/confirm-dialog"
-import { ListFooter, SearchBox, SimpleTable, useListState } from "@/components/data-table"
+import {
+  ListFooter,
+  SearchBox,
+  SimpleTable,
+  SortHead,
+  useListState,
+} from "@/components/data-table"
+import { DetailItem, formatTimeLimit } from "@/components/detail-item"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -108,14 +117,117 @@ function QrDialog({ client, onClose }: { client: ClientView | null; onClose: () 
   )
 }
 
+function ClientDetail({
+  c,
+  isAdmin,
+  onClearLimit,
+  onShowQr,
+}: {
+  c: ClientView
+  isAdmin: boolean
+  onClearLimit: (mode: string) => void
+  onShowQr: () => void
+}) {
+  const { t } = useTranslation()
+  const yes = t("word-true")
+  const no = t("word-false")
+  const clear = (mode: string) => (isAdmin ? () => onClearLimit(mode) : undefined)
+  const totalFlow = c.flow.inletFlow + c.flow.exportFlow
+  const flowRemain =
+    c.flow.flowLimit === 0 ? "∞" : formatBytes(c.flow.flowLimit * 1024 * 1024 - totalFlow)
+
+  return (
+    <div className="bg-muted/30 px-6 py-3 text-sm">
+      <div>
+        <DetailItem
+          label={t("word-maxconnections")}
+          value={c.maxConn === 0 ? no : c.maxConn}
+          onClear={c.maxConn !== 0 ? clear("conn_limit") : undefined}
+        />
+        <DetailItem label={t("word-curconnections")} value={c.nowConn} />
+        <DetailItem
+          label={t("word-flowlimit")}
+          value={c.flow.flowLimit === 0 ? no : formatBytes(c.flow.flowLimit * 1024 * 1024)}
+          onClear={c.flow.flowLimit !== 0 ? clear("flow_limit") : undefined}
+        />
+        <DetailItem label={t("word-flowremain")} value={flowRemain} />
+        <DetailItem
+          label={t("word-timelimit")}
+          value={formatTimeLimit(c.flow.timeLimit) ?? no}
+          onClear={c.flow.timeLimit ? clear("time_limit") : undefined}
+        />
+        <DetailItem
+          label={t("word-ratelimit")}
+          value={c.rateLimit === 0 ? no : `${c.rateLimit} KB/s`}
+          onClear={c.rateLimit !== 0 ? clear("rate_limit") : undefined}
+        />
+        <DetailItem
+          label={t("word-maxtunnels")}
+          value={c.maxTunnelNum === 0 ? no : c.maxTunnelNum}
+          onClear={c.maxTunnelNum !== 0 ? clear("tunnel_limit") : undefined}
+        />
+      </div>
+      <div>
+        <DetailItem label={t("word-createtime")} value={c.createTime || "-"} />
+        <DetailItem label={t("word-lastonlinetime")} value={c.lastOnlineTime || "-"} />
+        <DetailItem label={t("word-address")} value={c.addr || "-"} copyable={c.addr} />
+        <DetailItem
+          label={t("word-localaddress")}
+          value={c.localAddr || "-"}
+          copyable={c.localAddr}
+        />
+      </div>
+      {(c.webUserName || c.hasTotp) && (
+        <div>
+          {c.webUserName && (
+            <DetailItem label={t("word-webusername")} value={c.webUserName} />
+          )}
+          {c.hasWebPassword && <DetailItem label={t("word-webpassword")} value="******" />}
+          {c.hasTotp && (
+            <DetailItem
+              label={t("word-webtotpsecret")}
+              value={
+                <button type="button" className="text-primary hover:underline" onClick={onShowQr}>
+                  {t("ui-qrcode")}
+                </button>
+              }
+            />
+          )}
+        </div>
+      )}
+      {(c.basicUser || c.basicPassword) && (
+        <div>
+          <DetailItem
+            label={t("word-basicusername")}
+            value={c.basicUser || "-"}
+            copyable={c.basicUser}
+          />
+          <DetailItem
+            label={t("word-basicpassword")}
+            value={c.basicPassword || "-"}
+            copyable={c.basicPassword}
+          />
+        </div>
+      )}
+      <div>
+        <DetailItem label={t("word-crypt")} value={c.crypt ? yes : no} />
+        <DetailItem label={t("word-compress")} value={c.compress ? yes : no} />
+        <DetailItem label={t("word-connectbyconfig")} value={c.configConnAllow ? yes : no} />
+        <DetailItem label={t("word-blackip")} value={c.blackIpList.join(", ") || "-"} />
+      </div>
+    </div>
+  )
+}
+
 export default function ClientsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const { confirm, dialog } = useConfirm()
-  const { state, setSearch, prevPage, nextPage } = useListState()
+  const { state, setSearch, prevPage, nextPage, setLimit, toggleSort } = useListState()
   const [commandFor, setCommandFor] = useState<ClientView | null>(null)
   const [qrFor, setQrFor] = useState<ClientView | null>(null)
+  const [expanded, setExpanded] = useState<Set<number>>(new Set())
 
   const { data, isLoading } = useQuery({
     queryKey: ["clients", state],
@@ -137,16 +249,63 @@ export default function ClientsPage() {
   const rows = data?.rows ?? []
   const isAdmin = !!user?.isAdmin
 
+  const toggleExpand = (id: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const pingOne = async (c: ClientView) => {
+    const r = await api.clients.ping(c.id)
+    toast.info(`#${c.id} RTT: ${r.rtt} ms`)
+  }
+
+  const columnCount = 11
+
   return (
     <div className="flex flex-col gap-4">
       {dialog}
       <CommandDialog client={commandFor} onClose={() => setCommandFor(null)} />
       <QrDialog client={qrFor} onClose={() => setQrFor(null)} />
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">{t("page-clientlist")}</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <SearchBox value={state.search} onChange={setSearch} />
+          {isAdmin && (
+            <>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  if (await confirm(t("clear"))) {
+                    act.mutate(() => api.clients.clearAll("flow"))
+                  }
+                }}
+              >
+                <Eraser className="size-4" />
+                {t("word-clearflow")}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  act.mutate(async () => {
+                    const online = rows.filter((c) => c.isConnect)
+                    if (online.length === 0) {
+                      toast.info(t("ui-nodata"))
+                      return
+                    }
+                    await Promise.allSettled(online.map((c) => pingOne(c)))
+                  })
+                }
+              >
+                <Radio className="size-4" />
+                {t("word-ping")}
+              </Button>
+            </>
+          )}
           {isAdmin && (
             <Button asChild>
               <Link to="/clients/new">
@@ -162,130 +321,206 @@ export default function ClientsPage() {
         loading={isLoading}
         empty={rows.length === 0}
         headers={[
-          "ID",
-          t("word-remark"),
+          "",
+          <SortHead key="id" label="ID" field="Id" state={state} onSort={toggleSort} />,
+          <SortHead
+            key="remark"
+            label={t("word-remark")}
+            field="Remark"
+            state={state}
+            onSort={toggleSort}
+          />,
           t("word-clientstatus"),
-          t("word-address"),
+          <SortHead
+            key="addr"
+            label={t("word-address")}
+            field="Addr"
+            state={state}
+            onSort={toggleSort}
+          />,
           t("word-version"),
           t("word-speed"),
           t("word-nowconn"),
-          t("word-trafficstatistics"),
+          <SortHead
+            key="flow"
+            label={t("word-trafficstatistics")}
+            field="TotalFlow"
+            state={state}
+            onSort={toggleSort}
+          />,
           t("word-tunnel"),
           t("word-option"),
         ]}
       >
         {rows.map((c) => (
-          <TableRow key={c.id}>
-            <TableCell className="font-mono">{c.id}</TableCell>
-            <TableCell className="max-w-40 truncate">{c.remark}</TableCell>
-            <TableCell>
-              <div className="flex items-center gap-2">
-                <Badge variant={c.isConnect ? "default" : "secondary"}>
-                  {c.isConnect ? t("word-online") : t("word-offline")}
-                </Badge>
-                {isAdmin && (
-                  <Switch
-                    checked={c.status}
-                    onCheckedChange={(checked) =>
-                      act.mutate(() => api.clients.setStatus(c.id, checked))
-                    }
-                  />
-                )}
-              </div>
-            </TableCell>
-            <TableCell className="font-mono text-xs">{c.addr}</TableCell>
-            <TableCell className="max-w-28 truncate text-xs">{c.version}</TableCell>
-            <TableCell className="text-xs">{formatRate(c.nowRate)}</TableCell>
-            <TableCell>{c.nowConn}</TableCell>
-            <TableCell className="text-xs">
-              {formatBytes(c.flow.inletFlow)} / {formatBytes(c.flow.exportFlow)}
-            </TableCell>
-            <TableCell>
-              <Link to={`/tunnels?clientId=${c.id}`} className="text-primary hover:underline">
-                {c.tunnelNum}
-              </Link>
-            </TableCell>
-            <TableCell>
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  title={t("word-quicklycommand")}
-                  onClick={() => setCommandFor(c)}
+          <Fragment key={c.id}>
+            <TableRow>
+              <TableCell className="w-8">
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => toggleExpand(c.id)}
                 >
-                  <Terminal className="size-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  title={t("word-verifykey")}
-                  onClick={() => void copyText(c.verifyKey ?? "")}
-                >
-                  <KeyRound className="size-3.5" />
-                </Button>
-                {c.hasTotp && (
+                  {expanded.has(c.id) ? (
+                    <ChevronDown className="size-4" />
+                  ) : (
+                    <ChevronRight className="size-4" />
+                  )}
+                </button>
+              </TableCell>
+              <TableCell
+                className="cursor-pointer font-mono"
+                title={t("word-copy")}
+                onClick={() => void copyText(String(c.id))}
+              >
+                {c.id}
+              </TableCell>
+              <TableCell
+                className="max-w-40 cursor-pointer truncate"
+                title={t("word-copy")}
+                onClick={() => c.remark && void copyText(c.remark)}
+              >
+                {c.remark}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={c.isConnect ? "default" : "secondary"}
+                    className={c.isConnect ? "cursor-pointer" : undefined}
+                    onClick={() => {
+                      if (c.isConnect) void pingOne(c)
+                    }}
+                  >
+                    {c.isConnect ? t("word-online") : t("word-offline")}
+                  </Badge>
+                  {isAdmin && (
+                    <Switch
+                      checked={c.status}
+                      onCheckedChange={(checked) =>
+                        act.mutate(() => api.clients.setStatus(c.id, checked))
+                      }
+                    />
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className="font-mono text-xs">{c.addr}</TableCell>
+              <TableCell className="max-w-28 truncate text-xs">{c.version}</TableCell>
+              <TableCell className="text-xs">{formatRate(c.nowRate)}</TableCell>
+              <TableCell>{c.nowConn}</TableCell>
+              <TableCell className="text-xs">
+                {formatBytes(c.flow.inletFlow)} / {formatBytes(c.flow.exportFlow)}
+              </TableCell>
+              <TableCell>
+                <div className="flex gap-2 text-xs">
+                  <Link to={`/tunnels?clientId=${c.id}`} className="text-primary hover:underline">
+                    {t("word-tunnel")} {c.tunnelNum}
+                  </Link>
+                  <Link to={`/hosts?clientId=${c.id}`} className="text-primary hover:underline">
+                    {t("word-host")}
+                  </Link>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex gap-1">
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    title={t("ui-qrcode")}
-                    onClick={() => setQrFor(c)}
+                    title={t("word-quicklycommand")}
+                    onClick={() => setCommandFor(c)}
                   >
-                    <QrCode className="size-3.5" />
+                    <Terminal className="size-3.5" />
                   </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  title={t("word-ping")}
-                  onClick={() =>
-                    act.mutate(async () => {
-                      const r = await api.clients.ping(c.id)
-                      toast.info(`RTT: ${r.rtt} ms`)
-                    })
-                  }
-                >
-                  <Radio className="size-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon-xs" title={t("word-edit")} asChild>
-                  <Link to={`/clients/${c.id}/edit`}>
-                    <Pencil className="size-3.5" />
-                  </Link>
-                </Button>
-                {isAdmin && (
-                  <>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    title={c.noStore ? t("word-publicvkey") : t("word-verifykey")}
+                    onClick={() => void copyText(c.verifyKey ?? "")}
+                  >
+                    <KeyRound className="size-3.5" />
+                  </Button>
+                  {c.hasTotp && (
                     <Button
                       variant="ghost"
                       size="icon-xs"
-                      title={t("word-clearflow")}
-                      onClick={async () => {
-                        if (await confirm(t("clear"))) {
-                          act.mutate(() => api.clients.clear(c.id, "flow"))
-                        }
-                      }}
+                      title={t("ui-qrcode")}
+                      onClick={() => setQrFor(c)}
                     >
-                      <Eraser className="size-3.5" />
+                      <QrCode className="size-3.5" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      title={t("word-delete")}
-                      onClick={async () => {
-                        if (await confirm(t("delete"))) {
-                          act.mutate(() => api.clients.remove(c.id))
-                        }
-                      }}
-                    >
-                      <Trash2 className="size-3.5 text-destructive" />
-                    </Button>
-                  </>
-                )}
-              </div>
-            </TableCell>
-          </TableRow>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    title={t("word-ping")}
+                    onClick={() => act.mutate(() => pingOne(c))}
+                  >
+                    <Radio className="size-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon-xs" title={t("word-edit")} asChild>
+                    <Link to={`/clients/${c.id}/edit`}>
+                      <Pencil className="size-3.5" />
+                    </Link>
+                  </Button>
+                  {isAdmin && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        title={t("word-clearflow")}
+                        onClick={async () => {
+                          if (await confirm(t("clear"))) {
+                            act.mutate(() => api.clients.clear(c.id, "flow"))
+                          }
+                        }}
+                      >
+                        <Eraser className="size-3.5" />
+                      </Button>
+                      {!c.noStore && (
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          title={t("word-delete")}
+                          onClick={async () => {
+                            if (await confirm(t("delete"))) {
+                              act.mutate(() => api.clients.remove(c.id))
+                            }
+                          }}
+                        >
+                          <Trash2 className="size-3.5 text-destructive" />
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
+            {expanded.has(c.id) && (
+              <TableRow>
+                <TableCell colSpan={columnCount} className="p-0">
+                  <ClientDetail
+                    c={c}
+                    isAdmin={isAdmin}
+                    onClearLimit={async (mode) => {
+                      if (await confirm(t("clear"))) {
+                        act.mutate(() => api.clients.clear(c.id, mode))
+                      }
+                    }}
+                    onShowQr={() => setQrFor(c)}
+                  />
+                </TableCell>
+              </TableRow>
+            )}
+          </Fragment>
         ))}
       </SimpleTable>
 
-      <ListFooter state={state} total={data?.total ?? 0} onPrev={prevPage} onNext={nextPage} />
+      <ListFooter
+        state={state}
+        total={data?.total ?? 0}
+        onPrev={prevPage}
+        onNext={nextPage}
+        onLimit={setLimit}
+      />
     </div>
   )
 }

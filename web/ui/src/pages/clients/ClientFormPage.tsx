@@ -55,9 +55,27 @@ const EMPTY: FormState = {
   flowReset: false,
 }
 
+// The limit inputs use datetime-local / plain numbers; the backend accepts a
+// unix-seconds string for time_limit, so that is what gets submitted.
+function unixToLocal(secs: number): string {
+  if (!secs) return ""
+  const d = new Date(secs * 1000)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function localToUnixStr(v: string): string {
+  if (!v) return ""
+  const ms = new Date(v).getTime()
+  return Number.isNaN(ms) ? "" : String(Math.floor(ms / 1000))
+}
+
 // One form serves create and edit; the request DTO uses optional fields, so
 // only what the user may change is sent. Admin-only fields are simply not
-// rendered for a regular user — the server enforces the same split.
+// rendered for a regular user — the server enforces the same split. The old
+// pages additionally hid each limit behind its allow_* config switch; those
+// arrive here as user.permissions, and a hidden field is also never submitted
+// so an untouched limit stays as-is.
 export default function ClientFormPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -65,8 +83,12 @@ export default function ClientFormPage() {
   const params = useParams()
   const id = params.id ? Number(params.id) : null
   const isAdmin = !!user?.isAdmin
+  const perms = user?.permissions
 
-  const [form, setForm] = useState<FormState>(EMPTY)
+  // The old add page pre-filled a random basic-auth password on load.
+  const [form, setForm] = useState<FormState>(() =>
+    id === null ? { ...EMPTY, basicPassword: generateRandomPassword() } : EMPTY,
+  )
   const [busy, setBusy] = useState(false)
 
   const { data: existing } = useQuery({
@@ -93,7 +115,7 @@ export default function ClientFormPage() {
       maxConn: existing.maxConn ? String(existing.maxConn) : "",
       maxTunnelNum: existing.maxTunnelNum ? String(existing.maxTunnelNum) : "",
       flowLimit: existing.flow.flowLimit ? String(existing.flow.flowLimit) : "",
-      timeLimit: existing.flow.timeLimit ? String(existing.flow.timeLimit) : "",
+      timeLimit: unixToLocal(existing.flow.timeLimit),
       flowReset: false,
     })
   }, [existing])
@@ -122,11 +144,14 @@ export default function ClientFormPage() {
       if (form.webTotpSecret !== "") req.webTotpSecret = form.webTotpSecret
       if (isAdmin) {
         if (form.verifyKey !== (existing?.verifyKey ?? "")) req.verifyKey = form.verifyKey
-        req.rateLimit = form.rateLimit === "" ? 0 : Number(form.rateLimit)
-        req.maxConn = form.maxConn === "" ? 0 : Number(form.maxConn)
-        req.maxTunnelNum = form.maxTunnelNum === "" ? 0 : Number(form.maxTunnelNum)
-        req.flowLimit = form.flowLimit === "" ? 0 : Number(form.flowLimit)
-        req.timeLimit = form.timeLimit
+        // A limit hidden by its allow_* switch is not sent at all, so the
+        // stored value survives — same as the old form omitting the input.
+        if (perms?.rateLimit) req.rateLimit = form.rateLimit === "" ? 0 : Number(form.rateLimit)
+        if (perms?.connNumLimit) req.maxConn = form.maxConn === "" ? 0 : Number(form.maxConn)
+        if (perms?.tunnelNumLimit)
+          req.maxTunnelNum = form.maxTunnelNum === "" ? 0 : Number(form.maxTunnelNum)
+        if (perms?.flowLimit) req.flowLimit = form.flowLimit === "" ? 0 : Number(form.flowLimit)
+        if (perms?.timeLimit) req.timeLimit = localToUnixStr(form.timeLimit)
         req.flowReset = form.flowReset
       }
       if (id === null) {
@@ -199,27 +224,34 @@ export default function ClientFormPage() {
           <CardTitle className="text-base">{t("word-webusername")}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label={t("word-webusername")}>
-            <Input
-              value={form.webUserName}
-              onChange={(e) => set("webUserName", e.target.value)}
-              disabled={!isAdmin && !user?.permissions.changeUsername}
-            />
-          </Field>
-          <Field label={t("word-webpassword")}>
-            <PasswordWithGenerator
-              value={form.webPassword}
-              onChange={(v) => set("webPassword", v)}
-            />
-          </Field>
-          <Field label={t("word-webtotpsecret")}>
-            <Input
-              value={form.webTotpSecret}
-              onChange={(e) => set("webTotpSecret", e.target.value)}
-              className="font-mono"
-              placeholder={existing?.hasTotp ? "••••••" : ""}
-            />
-          </Field>
+          {/* The old page hid the whole login block behind allow_user_login,
+              and the username inside it behind allow_user_change_username. */}
+          {perms?.userLoginAllowed && (
+            <>
+              {(isAdmin || perms.changeUsername) && (
+                <Field label={t("word-webusername")}>
+                  <Input
+                    value={form.webUserName}
+                    onChange={(e) => set("webUserName", e.target.value)}
+                  />
+                </Field>
+              )}
+              <Field label={t("word-webpassword")}>
+                <PasswordWithGenerator
+                  value={form.webPassword}
+                  onChange={(v) => set("webPassword", v)}
+                />
+              </Field>
+              <Field label={t("word-webtotpsecret")}>
+                <Input
+                  value={form.webTotpSecret}
+                  onChange={(e) => set("webTotpSecret", e.target.value)}
+                  className="font-mono"
+                  placeholder={existing?.hasTotp ? "••••••" : ""}
+                />
+              </Field>
+            </>
+          )}
           <Field label={t("word-blackiplist")} hint={t("info-descblackiplist")}>
             <Textarea
               value={form.blackIpList}
@@ -231,46 +263,63 @@ export default function ClientFormPage() {
         </CardContent>
       </Card>
 
-      {isAdmin && (
+      {isAdmin &&
+        (perms?.rateLimit ||
+          perms?.connNumLimit ||
+          perms?.tunnelNumLimit ||
+          perms?.flowLimit ||
+          perms?.timeLimit ||
+          id !== null) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">{t("word-admin")}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <Field label={`${t("word-ratelimit")} (KB/s)`} hint={t("info-unrestricted")}>
-              <Input
-                type="number"
-                value={form.rateLimit}
-                onChange={(e) => set("rateLimit", e.target.value)}
-              />
-            </Field>
-            <Field label={t("word-maxconnections")} hint={t("info-unrestricted")}>
-              <Input
-                type="number"
-                value={form.maxConn}
-                onChange={(e) => set("maxConn", e.target.value)}
-              />
-            </Field>
-            <Field label={t("word-maxtunnels")} hint={t("info-unrestricted")}>
-              <Input
-                type="number"
-                value={form.maxTunnelNum}
-                onChange={(e) => set("maxTunnelNum", e.target.value)}
-              />
-            </Field>
-            <Field label={`${t("word-flowlimit")} (MB)`} hint={t("info-unrestricted")}>
-              <Input
-                type="number"
-                value={form.flowLimit}
-                onChange={(e) => set("flowLimit", e.target.value)}
-              />
-            </Field>
-            <Field label={t("word-timelimit")} hint={t("info-timelimit")}>
-              <Input
-                value={form.timeLimit}
-                onChange={(e) => set("timeLimit", e.target.value)}
-              />
-            </Field>
+            {perms?.rateLimit && (
+              <Field label={`${t("word-ratelimit")} (KB/s)`} hint={t("info-unrestricted")}>
+                <Input
+                  type="number"
+                  value={form.rateLimit}
+                  onChange={(e) => set("rateLimit", e.target.value)}
+                />
+              </Field>
+            )}
+            {perms?.connNumLimit && (
+              <Field label={t("word-maxconnections")} hint={t("info-unrestricted")}>
+                <Input
+                  type="number"
+                  value={form.maxConn}
+                  onChange={(e) => set("maxConn", e.target.value)}
+                />
+              </Field>
+            )}
+            {perms?.tunnelNumLimit && (
+              <Field label={t("word-maxtunnels")} hint={t("info-unrestricted")}>
+                <Input
+                  type="number"
+                  value={form.maxTunnelNum}
+                  onChange={(e) => set("maxTunnelNum", e.target.value)}
+                />
+              </Field>
+            )}
+            {perms?.flowLimit && (
+              <Field label={`${t("word-flowlimit")} (MB)`} hint={t("info-unrestricted")}>
+                <Input
+                  type="number"
+                  value={form.flowLimit}
+                  onChange={(e) => set("flowLimit", e.target.value)}
+                />
+              </Field>
+            )}
+            {perms?.timeLimit && (
+              <Field label={t("word-timelimit")} hint={t("info-timelimit")}>
+                <Input
+                  type="datetime-local"
+                  value={form.timeLimit}
+                  onChange={(e) => set("timeLimit", e.target.value)}
+                />
+              </Field>
+            )}
             {id !== null && (
               <ToggleField
                 label={t("word-flowreset")}
