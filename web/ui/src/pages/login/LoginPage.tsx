@@ -147,12 +147,14 @@ export default function LoginPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={submit} className="flex flex-col gap-4">
+          {/* autoComplete="new-password" (not "off") is what actually stops
+              Chrome from offering saved credentials on this form. */}
+          <form onSubmit={submit} autoComplete="off" className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="username">{t("word-username")}</Label>
               <Input
                 id="username"
-                autoComplete="username"
+                autoComplete="off"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -163,7 +165,7 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
