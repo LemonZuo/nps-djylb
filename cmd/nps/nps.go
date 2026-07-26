@@ -24,7 +24,7 @@ import (
 	"github.com/djylb/nps/server"
 	"github.com/djylb/nps/server/connection"
 	"github.com/djylb/nps/server/tool"
-	"github.com/djylb/nps/web/routers"
+	"github.com/djylb/nps/web/api"
 
 	goflag "flag"
 
@@ -288,7 +288,6 @@ func (p *nps) run() error {
 }
 
 func run() {
-	routers.Init()
 	task := &file.Tunnel{
 		Mode: "webServer",
 	}
@@ -323,5 +322,16 @@ func run() {
 	bridge.ServerTlsEnable = appconfig.AppConfig().DefaultBool("tls_enable", true) && connection.BridgeTlsPort != 0 && bridgeType == "tcp"
 	bridge.ServerWsEnable = appconfig.AppConfig().DefaultBool("ws_enable", true) && connection.BridgeWsPort != 0 && connection.BridgePath != "" && bridgeType == "tcp"
 	bridge.ServerWssEnable = appconfig.AppConfig().DefaultBool("wss_enable", true) && connection.BridgeWssPort != 0 && connection.BridgePath != "" && bridgeType == "tcp"
+
+	// The API handlers call into server/, so server/ cannot import them. Wiring
+	// happens here, where importing both is fine.
+	router := api.NewRouter(common.StartTime)
+	if base := router.BasePath(); base != "" {
+		logs.Info("web management interface is mounted under %s", base)
+	}
+	server.SetWebHandler(router, func() (bool, string, string) {
+		return api.WebOpenSSL(), api.WebCertFile(), api.WebKeyFile()
+	})
+
 	go server.StartNewServer(task, timeout)
 }
