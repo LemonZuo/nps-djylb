@@ -64,7 +64,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "https://d-jy.net/docs/nps/", labelKey: "word-help", icon: Lightbulb, external: true },
 ]
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const location = useLocation()
@@ -83,23 +83,32 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
     <nav className="flex flex-col gap-1 p-2">
       {NAV_ITEMS.filter((item) => !item.adminOnly || user?.isAdmin).map((item) => {
         const className = cn(
-          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+          "flex items-center gap-3 rounded-lg py-2 text-sm transition-colors",
+          collapsed ? "justify-center px-0" : "px-3",
           isActive(item)
             ? "bg-primary text-primary-foreground"
             : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )
+        const title = collapsed ? t(item.labelKey) : undefined
         if (item.external) {
           return (
-            <a key={item.to} href={item.to} target="_blank" rel="noreferrer" className={className}>
-              <item.icon className="size-4" />
-              {t(item.labelKey)}
+            <a
+              key={item.to}
+              href={item.to}
+              target="_blank"
+              rel="noreferrer"
+              className={className}
+              title={title}
+            >
+              <item.icon className="size-4 shrink-0" />
+              {!collapsed && t(item.labelKey)}
             </a>
           )
         }
         return (
-          <Link key={item.to} to={item.to} onClick={onNavigate} className={className}>
-            <item.icon className="size-4" />
-            {t(item.labelKey)}
+          <Link key={item.to} to={item.to} onClick={onNavigate} className={className} title={title}>
+            <item.icon className="size-4 shrink-0" />
+            {!collapsed && t(item.labelKey)}
           </Link>
         )
       })}
@@ -107,13 +116,22 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-function SidebarHeader() {
+function SidebarHeader({ collapsed }: { collapsed?: boolean }) {
   const { data: bootstrap } = useQuery({ queryKey: ["bootstrap"], queryFn: api.meta.bootstrap })
   return (
-    <div className="flex h-14 items-center gap-2 border-b px-4">
+    <div
+      className={cn(
+        "flex h-14 items-center gap-2 border-b",
+        collapsed ? "justify-center px-0" : "px-4",
+      )}
+    >
       <img src="./favicon.svg" alt="NPS" className="size-6" />
-      <span className="text-lg font-semibold">NPS</span>
-      {bootstrap && <span className="text-xs text-muted-foreground">v{bootstrap.version}</span>}
+      {!collapsed && (
+        <>
+          <span className="text-lg font-semibold">NPS</span>
+          {bootstrap && <span className="text-xs text-muted-foreground">v{bootstrap.version}</span>}
+        </>
+      )}
     </div>
   )
 }
@@ -123,14 +141,29 @@ export default function AppLayout() {
   const { theme, setTheme } = useTheme()
   const { user, logout } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
+  // Desktop sidebar collapse, like the old Inspinia navbar-minimalize button.
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem("sidebar-collapsed") === "1",
+  )
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      localStorage.setItem("sidebar-collapsed", c ? "0" : "1")
+      return !c
+    })
+  }
 
   const isDark = theme === "dark"
 
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-56 shrink-0 flex-col border-r bg-background md:flex">
-        <SidebarHeader />
-        <NavLinks />
+      <aside
+        className={cn(
+          "hidden shrink-0 flex-col border-r bg-background transition-[width] duration-200 md:flex",
+          collapsed ? "w-14" : "w-44",
+        )}
+      >
+        <SidebarHeader collapsed={collapsed} />
+        <NavLinks collapsed={collapsed} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -147,6 +180,15 @@ export default function AppLayout() {
               <NavLinks onNavigate={() => setMobileOpen(false)} />
             </SheetContent>
           </Sheet>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden md:inline-flex"
+            onClick={toggleCollapsed}
+          >
+            <Menu className="size-5" />
+          </Button>
 
           <div className="flex-1" />
 
