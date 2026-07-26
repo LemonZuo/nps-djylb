@@ -2,16 +2,18 @@ import type { Envelope } from "./types"
 
 // Thin fetch wrapper for the /api/v1 JSON API.
 //
-// The token lives in module state, not localStorage: an XSS that can read
-// storage cannot lift a token that was never written there. The price is a
-// fresh login after every full page load, which docs/admin-rewrite-plan.md
-// accepts deliberately.
+// The token is mirrored to sessionStorage so a page reload keeps the session
+// (docs/admin-rewrite-plan.md's noted trade-off). sessionStorage rather than
+// localStorage keeps it scoped to this tab and gone when the tab closes.
 
-let token: string | null = null
+const TOKEN_KEY = "nps-token"
+let token: string | null = sessionStorage.getItem(TOKEN_KEY)
 let onUnauthorized: (() => void) | null = null
 
 export function setToken(t: string | null) {
   token = t
+  if (t) sessionStorage.setItem(TOKEN_KEY, t)
+  else sessionStorage.removeItem(TOKEN_KEY)
 }
 
 export function getToken(): string | null {

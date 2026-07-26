@@ -94,8 +94,8 @@ claims：
   避免 refresh 轮转的复杂度和被盗用窗口。
 - 签名密钥 `api_jwt_key`：读 `nps.conf`；为空则首次启动生成 32 字节随机值
   并写回配置文件，同时日志提示。升级用户零配置，且重启后 token 不失效。
-- 前端存储位置：**内存**（React state / TanStack Query cache），不落 localStorage。
-  防 XSS 窃取；刷新页面需重登，配合 2 小时有效期可接受。
+- 前端存储位置：**sessionStorage**（内存镜像，页面加载时经 `/auth/me` 恢复）。
+  不落 localStorage；标签页关闭即失效，刷新/热重载不掉登录。
 
 ### 3.4 权限模型
 
@@ -193,8 +193,9 @@ lib/appconfig/      新增 — beego/config 薄封装
    `linux_amd64_server.tar.gz` 不再含 `web/views`、`web/static`，
    只剩 `conf/nps.conf` + `nps`。升级用户旧目录残留不影响运行，需在 CHANGELOG 说明。
 
-4. **token 存内存**
-   刷新页面需重新登录。若更看重免重登体验，可改 sessionStorage（XSS 风险略升）。
+4. **token 存 sessionStorage**
+   最初设计为纯内存（刷新即重登），实际体验太差，已改为 sessionStorage：
+   刷新/热重载保持登录，标签页关闭失效；XSS 风险略升，可接受。
 
 5. **fork 专属 UI 定制需重新实现**
    CLAUDE.md 记录的 `client/add.html` 随机密码刷新按钮、
