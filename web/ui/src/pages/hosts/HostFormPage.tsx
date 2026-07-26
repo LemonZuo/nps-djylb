@@ -254,7 +254,7 @@ export default function HostFormPage() {
           <div className="flex flex-col gap-1.5">
             <Label>{t("word-scheme")}</Label>
             <Select value={form.scheme} onValueChange={(v) => set("scheme", v)}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -305,7 +305,7 @@ export default function HostFormPage() {
               value={form.targetIsHttps ? "1" : "0"}
               onValueChange={(v) => set("targetIsHttps", v === "1")}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -350,7 +350,7 @@ export default function HostFormPage() {
           <div className="flex flex-col gap-1.5">
             <Label>{t("word-proxyprotocol")}</Label>
             <Select value={form.proxyProtocol} onValueChange={(v) => set("proxyProtocol", v)}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -367,7 +367,7 @@ export default function HostFormPage() {
                 value={form.localProxy ? "1" : "0"}
                 onValueChange={(v) => set("localProxy", v === "1")}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

@@ -30,7 +30,7 @@ export function ClientPicker({
       value={value === null ? undefined : String(value)}
       onValueChange={(v) => onChange(Number(v))}
     >
-      <SelectTrigger>
+      <SelectTrigger className="w-full">
         <SelectValue placeholder={t("word-belongclient")} />
       </SelectTrigger>
       <SelectContent>

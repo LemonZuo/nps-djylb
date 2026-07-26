@@ -205,7 +205,7 @@ export default function TunnelFormPage() {
           <div className="flex flex-col gap-1.5">
             <Label>{t("word-scheme")}</Label>
             <Select value={form.mode} onValueChange={(v) => set("mode", v)}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -260,7 +260,7 @@ export default function TunnelFormPage() {
             <div className="flex flex-col gap-1.5">
               <Label>{t("word-targettype")}</Label>
               <Select value={form.targetType} onValueChange={(v) => set("targetType", v)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -359,7 +359,7 @@ export default function TunnelFormPage() {
               <div className="flex flex-col gap-1.5">
                 <Label>{t("word-destacl")}</Label>
                 <Select value={form.destAclMode} onValueChange={(v) => set("destAclMode", v)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -389,7 +389,7 @@ export default function TunnelFormPage() {
             <div className="flex flex-col gap-1.5">
               <Label>{t("word-proxyprotocol")}</Label>
               <Select value={form.proxyProtocol} onValueChange={(v) => set("proxyProtocol", v)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -408,7 +408,7 @@ export default function TunnelFormPage() {
                 value={form.localProxy ? "1" : "0"}
                 onValueChange={(v) => set("localProxy", v === "1")}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
