@@ -28,6 +28,11 @@ type Handler struct {
 	fsys     fs.FS
 	basePath string // normalised: "" or "/nps"
 
+	// headCustom is raw operator-supplied HTML (head_custom_code in nps.conf)
+	// spliced into index.html's <head>, as the old templates did on every page
+	// including login. Set before the first request; it is trusted config.
+	headCustom string
+
 	// index is the rewritten index.html, built once on first use.
 	indexOnce sync.Once
 	indexBody []byte
@@ -43,6 +48,13 @@ type Handler struct {
 // normalised (see web/basepath): "" or a path like "/nps".
 func New(fsys fs.FS, basePath string, modTime time.Time) *Handler {
 	return &Handler{fsys: fsys, basePath: basePath, modTime: modTime}
+}
+
+// SetHeadCustom installs HTML to inject before </head>. Must be called before
+// the handler serves its first request; later calls are ignored because the
+// index is rendered once.
+func (h *Handler) SetHeadCustom(code string) {
+	h.headCustom = code
 }
 
 // Available reports whether the build actually contains an index.html. A binary
@@ -153,7 +165,11 @@ func (h *Handler) serveIndex(w http.ResponseWriter, r *http.Request) {
 			h.indexErr = err
 			return
 		}
-		h.indexBody = rewriteBase(raw, h.basePath)
+		body := rewriteBase(raw, h.basePath)
+		if h.headCustom != "" {
+			body = bytes.Replace(body, []byte("</head>"), []byte(h.headCustom+"</head>"), 1)
+		}
+		h.indexBody = body
 	})
 	if h.indexErr != nil {
 		http.Error(w, "web UI is not built into this binary", http.StatusNotFound)

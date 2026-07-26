@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { LanguageThemeBar } from "./LanguageThemeBar"
+import { LanguageThemeBar, LoginFooter } from "./LanguageThemeBar"
 
 // Registration reuses the login envelope: the password travels RSA-encrypted
 // with a nonce and timestamp, and the captcha (when enabled) must be answered.
@@ -25,6 +25,10 @@ export default function RegisterPage() {
   const [captchaCode, setCaptchaCode] = useState("")
   const [busy, setBusy] = useState(false)
   const retry = useRef<{ nonce?: string; cert?: string; offset?: number }>({})
+
+  useEffect(() => {
+    document.title = t("title-register")
+  }, [t])
 
   const loadChallenge = useCallback(async () => {
     try {
@@ -81,7 +85,10 @@ export default function RegisterPage() {
         }
         toast.error(t(err.message.replace(/[^a-z]/gi, "").toLowerCase(), err.message))
       } else {
+        // Any other rejection (e.g. 409 duplicate username) has still consumed
+        // the nonce and captcha server-side, so fetch fresh material.
         toast.error(err instanceof Error ? err.message : String(err))
+        void loadChallenge()
       }
     } finally {
       setBusy(false)
@@ -157,6 +164,7 @@ export default function RegisterPage() {
           </form>
         </CardContent>
       </Card>
+      <LoginFooter />
     </div>
   )
 }

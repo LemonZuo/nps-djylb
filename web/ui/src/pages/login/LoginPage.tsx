@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { LanguageThemeBar } from "./LanguageThemeBar"
+import { LanguageThemeBar, LoginFooter } from "./LanguageThemeBar"
 
 // The login chain, mirroring web/api/auth.go:
 //   1. GET /auth/challenge → nonce, RSA public key, PoW difficulty, captcha,
@@ -35,6 +35,13 @@ export default function LoginPage() {
   const [solving, setSolving] = useState(false)
   // Retry material from a failed attempt overrides the initial challenge.
   const retry = useRef<{ nonce?: string; bits?: number; cert?: string; offset?: number }>({})
+  // The server rejects attempts closer together than loginDelayMs, so the form
+  // waits out the remainder client-side instead of burning a failure.
+  const lastAttempt = useRef(Date.now())
+
+  useEffect(() => {
+    document.title = t("title-login")
+  }, [t])
 
   const loadChallenge = useCallback(async () => {
     try {
@@ -43,6 +50,7 @@ export default function LoginPage() {
       setCaptcha(c.captcha ?? null)
       setCaptchaCode("")
       retry.current = { offset: c.serverTime - Date.now() }
+      lastAttempt.current = Date.now()
     } catch {
       toast.error(t("ui-loading"))
     }
@@ -73,16 +81,28 @@ export default function LoginPage() {
       const ciphertext = encryptLoginPayload(cert, nonce, password, offset)
 
       // PoW binds to the ciphertext (req.Password server-side). Solve whenever
-      // the server has ever demanded it: either up front or after a failure.
+      // the server has ever demanded it — up front, after a failure, or when
+      // the captcha field holds a bare TOTP (which the server treats as a
+      // failed captcha rescued by 2FA, and that path requires PoW).
       let powX = ""
       let bits = 0
-      const wantBits = retry.current.bits ?? (challenge.powRequired ? challenge.powBits : 0)
+      const totpOnly =
+        challenge.captchaOpen && challenge.totpLen > 0 && captchaCode.length === challenge.totpLen
+      const wantBits =
+        retry.current.bits ??
+        (challenge.powRequired || totpOnly ? challenge.powBits : 0)
       if (wantBits > 0) {
         setSolving(true)
         powX = await solvePoW(wantBits, ciphertext)
         bits = wantBits
         setSolving(false)
       }
+
+      const wait = challenge.loginDelayMs - (Date.now() - lastAttempt.current)
+      if (wait > 0) {
+        await new Promise((resolve) => setTimeout(resolve, wait))
+      }
+      lastAttempt.current = Date.now()
 
       const resp = await api.auth.login({
         username,
@@ -191,6 +211,7 @@ export default function LoginPage() {
           </form>
         </CardContent>
       </Card>
+      <LoginFooter />
     </div>
   )
 }

@@ -11,6 +11,30 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 
+// Shared footer for the unauthenticated pages, mirroring the old template's
+// copyright line and upstream link.
+export function LoginFooter() {
+  const { t } = useTranslation()
+  return (
+    <div className="mt-6 flex w-full max-w-sm items-center justify-between text-xs text-muted-foreground">
+      <span>
+        {t("word-copyright")} NPS &copy; 2018-{new Date().getFullYear()}
+      </span>
+      <span>
+        {t("word-readmore")}{" "}
+        <a
+          href="https://github.com/djylb/nps"
+          target="_blank"
+          rel="noreferrer"
+          className="text-primary hover:underline"
+        >
+          {t("word-go")}
+        </a>
+      </span>
+    </div>
+  )
+}
+
 // Shared corner controls for the unauthenticated pages.
 export function LanguageThemeBar() {
   const { t, i18n } = useTranslation()

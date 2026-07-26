@@ -39,6 +39,7 @@ func NewRouter(startTime time.Time) *Router {
 	)
 
 	ui := spa.New(web.DistFS(), base, startTime)
+	ui.SetHeadCustom(HeadCustomCode())
 
 	root := http.NewServeMux()
 	root.Handle(APIPrefix+"/", api)
