@@ -169,13 +169,13 @@ lib/appconfig/      新增 — beego/config 薄封装
 
 ## 6. 分阶段计划
 
-| 阶段 | 内容 | 可验证产出 |
-|---|---|---|
-| **M1 地基** | `lib/appconfig` 替换 `beego.AppConfig`；根 mux 接管监听；SPA embed handler | `go build` 通过，旧 UI 仍可访问 |
-| **M2 认证** | JWT 签发/校验、challenge、自研 captcha、authz 权限层、auth_key 兼容 | 单测覆盖签名伪造/过期/越权/重放 |
-| **M3 API** | dashboard / clients / tunnels / hosts / global 全部端点 | curl 可完成全部管理操作 |
-| **M4 前端** | Vite + shadcn 脚手架、登录页、六大功能页、i18n、暗色模式 | `pnpm dev` 可完整操作 |
-| **M5 收口** | 删除 views/static/controllers/routers；embed 构建链；build.sh / Dockerfile / installer 同步；文档更新 | 单二进制启动即完整后台 |
+| 阶段 | 内容 | 可验证产出 | 状态 |
+|---|---|---|---|
+| **M1 地基** | `lib/appconfig` 替换 `beego.AppConfig`；根 mux 接管监听；SPA embed handler | `go build` 通过，旧 UI 仍可访问 | ✅ 完成 |
+| **M2 认证** | JWT 签发/校验、challenge、自研 captcha、authz 权限层、auth_key 兼容 | 单测覆盖签名伪造/过期/越权/重放 | ✅ 完成 |
+| **M3 API** | dashboard / clients / tunnels / hosts / global 全部端点 | curl 可完成全部管理操作 | ✅ 完成 |
+| **M4 前端** | Vite + shadcn 脚手架、登录页、六大功能页、i18n、暗色模式 | `pnpm dev` 可完整操作，E2E 登录+全接口 200 | ✅ 完成 |
+| **M5 收口** | 删除 views/static/controllers/routers；embed 构建链；build.sh / Dockerfile / installer 同步；文档更新 | 单二进制启动即完整后台 | ✅ 完成 |
 
 每阶段结束汇报并等确认，再进入下一阶段。分多次提交。
 

@@ -188,7 +188,7 @@ Access-Control-Allow-Credentials: true
 
 ## 404页面配置
 
-支持域名解析模式的自定义404页面，修改/web/static/page/error.html中内容即可，暂不支持静态文件等内容
+支持域名解析模式的自定义404页面。默认 404 页面已内嵌在 nps 二进制中；如需自定义，在 `nps.conf` 中配置 `error_page=/path/to/error.html` 指向自定义 HTML 文件即可，暂不支持静态文件等内容
 
 ## 流量限制
 

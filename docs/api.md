@@ -1,303 +1,242 @@
 # NPS Web API 文档
 
-**注意：**  
-在使用 Web API 前，请确保在 `nps.conf` 中配置了有效的 `auth_key`，并取消其注释。
+管理后台已重构为前后端分离：所有管理操作走 `/api/v1` 下的 JSON API，认证使用 JWT Bearer Token。旧版 Beego 表单接口（`/index/*`、`/client/*`、`/login/*`、`/global/*`）已移除，文末附新老接口对照表。
 
-## Web API 验证机制
+## 通用约定
 
-每次 API 请求都需附带两个参数：
+- **前缀**：所有接口位于 `<web_base_url>/api/v1` 下（未配置 `web_base_url` 时即 `/api/v1`）。
+- **请求体**：`Content-Type: application/json`。
+- **响应体**：统一信封结构：
 
-- **`auth_key`** ：
-  - 生成规则：`auth_key = md5(配置文件中的auth_key + 当前时间戳)`
-  - 示例（Java Hutool工具）：
-
-```java
-Long time = new Date().getTime() / 1000;
-String authKey = MD5.create().digestHex("your_auth_key_here" + time.toString());
-System.out.println(authKey);
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "data": { ... },
+  "requestId": "a1b2c3d4e5f6a7b8"
+}
 ```
 
-- **`timestamp`** ：当前 Unix 时间戳（秒级）。
+| code | HTTP 状态 | 含义 |
+|------|-----------|------|
+| `0` | 200 | 成功 |
+| `40000` | 400 | 请求参数错误 |
+| `40100` | 401 | 未认证 / 凭证无效，需重新登录 |
+| `40101` | 401 | Token 过期（与 40100 区分以便前端提示） |
+| `40300` | 403 | 权限不足（需管理员） |
+| `40400` | 404 | 资源不存在 |
+| `40900` | 409 | 冲突（如端口占用、vkey 重复） |
+| `42900` | 429 | 触发限流或登录封禁 |
+| `50000` | 500 | 服务端内部错误（可用 `requestId` 关联日志） |
 
-**示例请求：**
+- **列表接口**：均支持 `offset` / `limit` / `search` / `sort` / `order`（`asc` / `desc`）查询参数，返回 `data: { rows: [...], total: n }`。隧道列表额外支持 `clientId`、`type` 过滤。
+
+## 认证方式
+
+### 方式一：JWT Bearer Token（SPA 使用）
+
+登录成功后获得 token，之后每个请求携带：
+
+```
+Authorization: Bearer <token>
+```
+
+### 方式二：auth_key + timestamp（第三方脚本兼容）
+
+与旧版完全兼容，通过 **查询参数** 附带（不再要求 POST 表单）：
+
+- `timestamp`：当前 Unix 时间戳（秒级），允许偏差 20 秒；
+- `auth_key`：`md5(配置文件中的 auth_key + timestamp)`。
+
+该方式始终以管理员身份访问。需在 `nps.conf` 中配置 `auth_key` 并取消注释，留空则此通道关闭。
 
 ```bash
-curl -X POST \
-  --url http://127.0.0.1:8080/client/list \
-  --data 'auth_key=your_generated_auth_key&timestamp=current_unix_timestamp&start=0&limit=10'
+ts=$(date +%s)
+key=$(printf '%s%s' "your_auth_key_here" "$ts" | md5sum | cut -d' ' -f1)
+curl "http://127.0.0.1:8888/api/v1/clients?auth_key=$key&timestamp=$ts&limit=10"
 ```
 
-**安全提醒：** 为保障安全性，每次请求的时间戳有效范围为 20 秒内。
+## 登录流程
 
-## 获取服务端时间
+登录不是单次明文提交，包含 RSA 加密、nonce 防重放，并可能要求验证码 / PoW（工作量证明）。
 
-**接口：** `POST /auth/gettime`
+### 1. 获取挑战
 
-- **返回值**：当前服务端 Unix 时间戳（单位：秒）。
+`GET /api/v1/auth/challenge` → `data`：
 
-## 获取服务端 authKey
+| 字段 | 说明 |
+|------|------|
+| `nonce` | 一次性随机串，登录时须封入密文 |
+| `publicKey` | RSA 公钥（PEM），用于加密密码载荷 |
+| `powRequired` / `powBits` | 是否强制 PoW 及难度（前导零比特数） |
+| `captchaOpen` / `captcha` | 是否需要验证码；`captcha` 含 `id` 与 base64 `image` |
+| `totpLen` | TOTP 动态码位数（默认 6） |
+| `registerAllowed` / `userLoginAllowed` / `vkeyLoginAllowed` | 功能开关 |
+| `loginDelayMs` | 失败后建议的重试间隔（毫秒） |
+| `serverTime` | 服务端毫秒时间戳（用于校正客户端时钟偏差） |
 
-**接口：** `POST /auth/getauthkey`
+### 2. 构造密文
 
-- **返回值**：AES CBC 加密后的 authKey。
-- **注意事项**：
-  - 需使用配置文件中的 `auth_crypt_key`（必须为16位字符）解密。
-  - AES CBC 解密（128位，pkcs5padding，十六进制编码）。
-    - 解密密钥长度128
-    - 偏移量与密钥相同
-    - 补码方式pkcs5padding
-    - 解密串编码方式 十六进制
+将 JSON `{"n": "<nonce>", "t": <毫秒时间戳>, "p": "<明文密码>"}` 用 `publicKey` 做 RSA PKCS#1 v1.5 加密，base64 编码，作为 `password` 提交。时间戳偏差超过 `login_max_skew`（默认 5 分钟）会被拒绝，可用 `serverTime` 校正。
 
-## 获取服务端证书
+若启用 TOTP，6 位动态码追加在验证码内容之后（未开验证码时追加在明文密码之后）。
 
-**接口：** `POST /auth/getcert`
+### 3. PoW（如要求）
 
-- **返回值**：NPS的证书公钥。
+当 `powRequired` 为 true（或失败响应中返回 `bits`）时，求 `powX` 使 `sha256(password密文字符串 + powX)` 有至少 `bits` 个前导零比特，随请求提交 `powX` 与 `bits`。
 
-## 仪表盘与导航接口
+### 4. 登录
 
-### 仪表盘页面
+`POST /api/v1/auth/login`
 
-- **接口：** `GET /index/index`
-- **功能**：渲染仪表盘页面，展示服务概览。
+```json
+{
+  "username": "admin",
+  "password": "<RSA密文base64>",
+  "captchaId": "...",
+  "captchaCode": "...",
+  "powX": "...",
+  "bits": 20
+}
+```
 
-### 仪表盘数据（仅管理员）
+成功 → `data`：
 
-- **接口：** `POST /index/stats`
-- **返回示例：**
-  - 成功：`{"code":1,"data":{...}}`
-  - 失败（非管理员）：`{"code":0}`
+```json
+{
+  "token": "<JWT>",
+  "expiresAt": 1785058190,
+  "user": { "username": "admin", "isAdmin": true, "clientId": 0, "permissions": { ... } }
+}
+```
 
-### 帮助页面
+失败（401）时 `data` 中携带新的重试材料：`nonce`、可能的 `bits` / `cert` / `timestamp` / `captcha`，可直接用于下一次尝试，无需重新请求 challenge。
 
-- **接口：** `GET /index/help`
-- **功能**：提供使用帮助信息。
+### 其他认证接口
 
-### 隧道导航页面
+| 接口 | 说明 |
+|------|------|
+| `GET /auth/captcha` | 单独获取新验证码（注册页 / 刷新用；验证码未启用时 404） |
+| `POST /auth/register` | 用户注册，`{username, password, captchaId, captchaCode}`，`password` 与登录同构 |
+| `GET /auth/me` | 当前登录身份与权限 |
+| `POST /auth/logout` | 登出（JWT 无状态，服务端仅记审计日志，客户端应丢弃 token） |
 
-以下接口均使用 `GET` 请求渲染对应隧道类型页面：
+## 元信息与仪表盘
 
-| URL             | 类型说明              |
-|-----------------|-------------------|
-| `/index/tcp`    | TCP 隧道            |
-| `/index/udp`    | UDP 隧道            |
-| `/index/socks5` | Socks5 隧道         |
-| `/index/http`   | HTTP 代理           |
-| `/index/mix`    | 混合代理（HTTP+SOCKS5） |
-| `/index/file`   | 文件服务              |
-| `/index/secret` | 私密代理              |
-| `/index/p2p`    | P2P 隧道            |
-| `/index/host`   | 域名解析              |
-| `/index/all`    | 按客户端展示            |
+| 接口 | 说明 |
+|------|------|
+| `GET /meta/bootstrap` | 版本、bridge 端点列表、代理端口、权限开关等前端引导数据 |
+| `GET /dashboard` | 仪表盘统计（客户端/隧道/主机数、流量、CPU、内存等），`?force=true` 跳过缓存 |
+| `GET /dashboard/history` | 历史采样序列（time / cpu / virtual_mem / tcp / io_recv / io_send） |
 
-## 隧道管理接口
+## 客户端管理
 
-### 获取隧道列表
+| 接口 | 权限 | 说明 |
+|------|------|------|
+| `GET /clients` | 登录 | 列表（普通用户仅见自己） |
+| `POST /clients` | 管理员 | 创建，返回生成的 vkey |
+| `GET /clients/{id}` | 登录 | 详情 |
+| `PUT /clients/{id}` | 登录 | 修改（普通用户仅能改自己，且受权限开关约束） |
+| `DELETE /clients/{id}` | 管理员 | 删除（连带其隧道与主机） |
+| `POST /clients/{id}/status` | 管理员 | `{"status": true|false}` 启用/停用 |
+| `POST /clients/{id}/ping` | 登录 | 延迟检测，返回 `{"rtt": 毫秒}` |
+| `GET /clients/{id}/qrcode` | 登录 | TOTP 二维码 PNG（需带认证头） |
+| `POST /clients/{id}/clear` | 管理员 | 清理配额/统计 |
+| `POST /clients/clear` | 管理员 | 对全部客户端清理 |
 
-- **接口：** `POST /index/gettunnel`
-- **请求参数**：
-  | 参数 | 说明 |
-  |------|------|
-  | `client_id` | 需要查询的客户端 ID（整数） |
-  | `type` | 隧道类型（`tcp`, `udp`, `httpProxy`, `socks5`, `secret`, `p2p`） |
-  | `search` | 关键词搜索（字符串） |
-  | `sort` | 排序字段（如 `id`） |
-  | `order` | 排序方式（`asc` 或 `desc`） |
-  | `offset` | 分页起始位置（整数） |
-  | `limit` | 每页显示条数（整数） |
+创建/修改请求体（字段均可选，只更新提交的字段）：
 
-### 添加/修改隧道
+```json
+{
+  "remark": "", "verifyKey": "", "rateLimit": 0, "maxConn": 0, "maxTunnelNum": 0,
+  "flowLimit": 0, "timeLimit": "", "flowReset": false,
+  "configConnAllow": true, "compress": false, "crypt": false,
+  "basicUser": "", "basicPassword": "",
+  "webUserName": "", "webPassword": "", "webTotpSecret": "",
+  "blackIpList": "", "status": true
+}
+```
 
-- **添加接口：** `POST /index/add`
-- **修改接口：** `POST /index/edit`
-- **请求参数**：
-  | 参数 | 说明 |
-  |------|------|
-  | `client_id` | 关联客户端 ID（整数） |
-  | `port` | 服务器监听端口，若 ≤0 则自动分配 |
-  | `server_ip` | 服务器 IP 地址 |
-  | `type` | 隧道类型（`tcp`, `udp`, `httpProxy`, `socks5`, `secret`, `p2p`） |
-  | `target` | 目标地址（如 `127.0.0.1:8080`，支持多行换行 `\n`） |
-  | `flow_reset` | 是否重置流量（`0` 否，`1` 是） |
-  | `flow_limit` | 流量限制（单位 MB，空则不限制） |
-  | `time_limit` | 时间限制（字符串，空则不限制） |
-  | `proxy_protocol` | 代理协议标识（整数） |
-  | `local_proxy` | 是否启用本地代理（`0` 否，`1` 是） |
-  | `target_type` | 目标类型（字符串） |
-  | `auth` | 多用户认证信息（多行 `账号:密码`） |
-  | `enable_http` | 是否启用 HTTP 代理能力（`0/1` 或 `true/false`） |
-  | `enable_socks5` | 是否启用 SOCKS5 代理能力（`0/1` 或 `true/false`） |
-  | `dest_acl_mode` | 出站 ACL 模式（`0` 关闭，`1` 白名单，`2` 黑名单） |
-  | `dest_acl_rules` | 出站 ACL 规则（多行） |
-  | `remark` | 隧道备注（字符串） |
-  | `password` | 访问隧道的密码（字符串） |
-  | `local_path` | 本地路径（适用于文件服务） |
-  | `strip_pre` | URL 前缀转换（字符串） |
-  | `id` | 隧道 ID（修改时必填） |
+`clear` 的 `mode` 取值：`flow` / `flow_limit` / `time_limit` / `rate_limit` / `conn_limit` / `tunnel_limit`。
 
-### 单个隧道操作
+## 隧道管理
 
-- **获取详情**：`POST /index/getonetunnel`，参数 `id`（隧道 ID）
-- **启动隧道**：`POST /index/start`，参数 `id`（隧道 ID）
-- **停止隧道**：`POST /index/stop`，参数 `id`（隧道 ID）
-- **删除隧道**：`POST /index/del`，参数 `id`（隧道 ID）
-- **清理/切换隧道属性**：`POST /index/clear`，参数：
-  - `id`：隧道 ID
-  - `mode`：`http` / `socks5` / `flow` / `flow_limit` / `time_limit`
+| 接口 | 权限 | 说明 |
+|------|------|------|
+| `GET /tunnels` | 登录 | 列表，支持 `clientId`、`type`（`tcp`/`udp`/`httpProxy`/`socks5`/`mixProxy`/`secret`/`p2p`/`file`）过滤 |
+| `POST /tunnels` | 登录 | 创建，`port` ≤ 0 时自动分配 |
+| `GET /tunnels/{id}` / `PUT` / `DELETE` | 登录 | 详情 / 修改 / 删除（用户仅限自己客户端的隧道） |
+| `POST /tunnels/{id}/start` / `stop` | 登录 | 启动 / 停止 |
+| `POST /tunnels/{id}/toggle` | 登录 | `{"name": "http"|"socks5", "action": "start"|"stop"|"toggle"}`（mixProxy 子开关） |
+| `POST /tunnels/{id}/clear` | 管理员 | `mode`: `flow` / `flow_limit` / `time_limit` |
 
-## 域名解析管理接口
+创建/修改请求体（按模式取用）：
 
-### 获取域名解析列表
+```json
+{
+  "clientId": 1, "mode": "tcp", "port": 10000, "serverIp": "",
+  "remark": "", "password": "", "target": "127.0.0.1:80", "targetType": "",
+  "proxyProtocol": 0, "localProxy": false, "auth": "user:pass",
+  "localPath": "", "stripPre": "", "httpProxy": true, "socks5Proxy": true,
+  "destAclMode": 0, "destAclRules": "",
+  "flowLimit": 0, "timeLimit": "", "flowReset": false
+}
+```
 
-- **接口：** `POST /index/hostlist`
-- **请求参数**：
-  | 参数 | 说明 |
-  |------|------|
-  | `search` | 搜索关键词（可以搜索域名、备注等） |
-  | `offset` | 分页起始位置（整数） |
-  | `limit` | 每页显示条数（整数） |
-  | `client_id` | 需要查询的客户端 ID（整数） |
+## 域名解析（Host）管理
 
-### 添加/修改域名解析
+| 接口 | 权限 | 说明 |
+|------|------|------|
+| `GET /hosts` | 登录 | 列表 |
+| `POST /hosts` | 登录 | 创建 |
+| `GET /hosts/{id}` / `PUT` / `DELETE` | 登录 | 详情 / 修改 / 删除 |
+| `POST /hosts/{id}/start` / `stop` | 登录 | 启动 / 停止 |
+| `POST /hosts/{id}/toggle` | 登录 | 属性开关，`name` 取值：`auto_ssl` / `https_just_proxy` / `tls_offload` / `auto_https` / `auto_cors` / `compat_mode` / `target_is_https`；`action` 同隧道 |
+| `POST /hosts/{id}/clear` | 管理员 | `mode`: `flow` / `flow_limit` / `time_limit` |
 
-- **添加接口：** `POST /index/addhost`
-- **修改接口：** `POST /index/edithost`
-- **请求参数**：
-  | 参数 | 说明 |
-  |------|------|
-  | `client_id` | 关联的客户端 ID（整数） |
-  | `host` | 域名（如 `example.com`） |
-  | `target` | 内网目标（`ip:端口`，支持多个，用\n分隔） |
-  | `flow_reset` | 是否重置流量（`0` 否，`1` 是） |
-  | `flow_limit` | 流量限制（单位 MB，空则不限制） |
-  | `time_limit` | 时间限制（字符串，空则不限制） |
-  | `proxy_protocol` | 代理协议标识（整数） |
-  | `local_proxy` | 是否启用本地代理（`0` 否，`1` 是） |
-  | `header` | 修改的请求头（字符串） |
-  | `resp_header` | 修改的响应头（字符串） |
-  | `auth` | 多用户认证信息（多行 `账号:密码`） |
-  | `hostchange` | 修改的 `Host` 值（字符串） |
-  | `remark` | 备注信息（字符串） |
-  | `location` | URL 路由（字符串，空则不限制） |
-  | `path_rewrite` | 路径重写规则（字符串） |
-  | `redirect_url` | 重定向 URL（字符串） |
-  | `scheme` | 协议类型（`all`、`http`、`https`） |
-  | `https_just_proxy` | 是否仅代理 HTTPS（`0` 否，`1` 是） |
-  | `tls_offload` | 是否启用 TLS 卸载（`0` 否，`1` 是） |
-  | `auto_ssl` | 是否启用自动 SSL（`0` 否，`1` 是） |
-  | `key_file` | HTTPS 证书密钥文本或路径（字符串） |
-  | `cert_file` | HTTPS 证书公钥文本或路径（字符串） |
-  | `auto_https` | 是否自动启用 HTTPS（`0` 否，`1` 是） |
-  | `auto_cors` | 是否自动添加 CORS 头（`0` 否，`1` 是） |
-  | `compat_mode` | 是否启用兼容模式（`0` 否，`1` 是） |
-  | `target_is_https` | 目标是否为 HTTPS（`0` 否，`1` 是） |
-  | `id` | 域名解析 ID（修改时必填） |
+创建/修改请求体主要字段：`clientId`、`host`、`scheme`（`all`/`http`/`https`）、`location`、`pathRewrite`、`redirectUrl`、`remark`、`target`、`targetIsHttps`、`proxyProtocol`、`localProxy`、`headerChange`、`respHeaderChange`、`hostChange`、`auth`、`httpsJustProxy`、`tlsOffload`、`autoSsl`、`autoHttps`、`autoCors`、`compatMode`、`certFile`、`keyFile`、`flowLimit`、`timeLimit`、`flowReset`。
 
-### 单个域名解析操作
+## 全局管理（仅管理员）
 
-- **获取详情**：`POST /index/gethost`（参数 `id`）
-- **启动**：`POST /index/starthost`（参数 `id`）
-- **停止**：`POST /index/stophost`（参数 `id`）
-- **清理/切换属性**：`POST /index/clearhost`，参数：
-  - `id`：域名解析 ID
-  - `mode`：`flow` / `flow_limit` / `time_limit` / `auto_ssl` / `https_just_proxy` / `tls_offload` / `auto_https` / `auto_cors` / `compat_mode` / `target_is_https`
-- **删除域名解析**：`POST /index/delhost`（参数 `id`）
+| 接口 | 说明 |
+|------|------|
+| `GET /global` | 读取全局黑名单，`data: {"blackIpList": ["1.2.3.4"]}` |
+| `PUT /global` | 保存，`{"blackIpList": [...]}` |
+| `GET /auth/bans` | 登录封禁列表（IP 与用户名维度） |
+| `DELETE /auth/bans/{key}` | 解除指定封禁 |
+| `DELETE /auth/bans` | 解除全部封禁 |
 
-## 客户端管理接口
+## 新老接口对照
 
-### 获取客户端列表
+| 旧接口（已移除） | 新接口 |
+|------|------|
+| `POST /auth/gettime` | 不再需要（challenge 返回 `serverTime`） |
+| `POST /auth/getauthkey` | 已移除（直接在服务端配置读取 `auth_key`） |
+| `POST /auth/getcert` | `GET /api/v1/auth/challenge`（`publicKey` 字段） |
+| `POST /index/stats` | `GET /api/v1/dashboard` |
+| `POST /index/gettunnel` | `GET /api/v1/tunnels` |
+| `POST /index/add` / `edit` | `POST` / `PUT /api/v1/tunnels` |
+| `POST /index/stop` / `start` | `POST /api/v1/tunnels/{id}/stop` / `start` |
+| `POST /index/del` | `DELETE /api/v1/tunnels/{id}` |
+| `POST /index/cleartunnel` | `POST /api/v1/tunnels/{id}/clear` |
+| `POST /index/gethost` | `GET /api/v1/hosts` |
+| `POST /index/addhost` / `edithost` | `POST` / `PUT /api/v1/hosts` |
+| `POST /index/stophost` / `starthost` | `POST /api/v1/hosts/{id}/stop` / `start` |
+| `POST /index/delhost` | `DELETE /api/v1/hosts/{id}` |
+| `POST /index/clearhost` | `POST /api/v1/hosts/{id}/clear` 或 `/toggle` |
+| `POST /client/list` | `GET /api/v1/clients` |
+| `POST /client/add` / `edit` | `POST` / `PUT /api/v1/clients` |
+| `POST /client/getclient` | `GET /api/v1/clients/{id}` |
+| `POST /client/pingclient` | `POST /api/v1/clients/{id}/ping` |
+| `POST /client/changestatus` | `POST /api/v1/clients/{id}/status` |
+| `POST /client/clear` | `POST /api/v1/clients/{id}/clear`（全部时用 `/clients/clear`） |
+| `POST /client/del` | `DELETE /api/v1/clients/{id}` |
+| `GET /client/qr` | `GET /api/v1/clients/{id}/qrcode` |
+| `POST /login/verify` | `POST /api/v1/auth/login` |
+| `GET /login/out` | `POST /api/v1/auth/logout` |
+| `POST /login/register` | `POST /api/v1/auth/register` |
+| `POST /global/save` | `PUT /api/v1/global` |
+| `POST /global/banlist` | `GET /api/v1/auth/bans` |
+| `POST /global/unban` / `unbanall` | `DELETE /api/v1/auth/bans/{key}` / `/api/v1/auth/bans` |
 
-- **接口：** `POST /client/list`
-- **请求参数**：
-  | 参数 | 说明 |
-  |------|------|
-  | `search` | 搜索关键字（字符串） |
-  | `order` | 排序方式（`asc` 正序，`desc` 倒序） |
-  | `offset` | 分页起始位置（整数） |
-  | `limit` | 每页显示条数（整数） |
-
-### 添加/修改客户端
-
-- **添加接口：** `POST /client/add`
-- **修改接口：** `POST /client/edit`
-- **请求参数**：
-  | 参数 | 说明 |
-  |------|------|
-  | `remark` | 备注信息（字符串） |
-  | `u` | Basic 认证用户名（字符串） |
-  | `p` | Basic 认证密码（字符串） |
-  | `vkey` | 客户端验证密钥（字符串） |
-  | `config_conn_allow` | 是否允许客户端以配置文件模式连接（`0` 否，`1` 是） |
-  | `compress` | 是否启用数据压缩（`0` 否，`1` 是） |
-  | `crypt` | 是否启用加密（`0` 否，`1` 是） |
-  | `flow_reset` | 是否重置流量（`0` 否，`1` 是） |
-  | `flow_limit` | 流量限制（单位 MB，空则不限制） |
-  | `time_limit` | 时间限制（字符串，空则不限制） |
-  | `rate_limit` | 带宽限制（单位 KB/s，空则不限制） |
-  | `max_conn` | 最大连接数量（整数，空则不限制） |
-  | `max_tunnel` | 最大隧道数量（整数，空则不限制） |
-  | `web_username` | 客户端 Web 登录用户名（字符串） |
-  | `web_password` | 客户端 Web 登录密码（字符串） |
-  | `web_totp_secret` | 客户端 Web 登录 TOTP 密钥（字符串） |
-  | `blackiplist` | 客户端黑名单 IP（多行） |
-  | `id` | 客户端 ID（修改时必填） |
-
-### 单个客户端操作
-
-- **获取详情**：`POST /client/getclient`（参数 `id`）
-- **延迟检查**：`POST /client/pingclient`（参数 `id`）
-- **修改状态**：`POST /client/changestatus`（参数 `id`、`status`）（`0` 否，`1` 是）
-- **清理客户端配额/统计**：`POST /client/clear`，参数：
-  - `id`：客户端 ID，传 `0` 表示对所有客户端生效
-  - `mode`：`flow` / `flow_limit` / `time_limit` / `rate_limit` / `conn_limit` / `tunnel_limit`
-- **删除客户端**：`POST /client/del`（参数 `id`）
-
-### 二维码接口
-
-- **接口：** `GET /client/qr`
-- **用途：** 返回 PNG 图片（常用于 TOTP 二维码）。
-- **参数（两种方式二选一）**：
-  1. `text`：完整二维码内容（URL 编码字符串）。
-  2. `account` + `secret`：由服务端生成 otpauth URL。
-
-## 用户认证接口
-
-### 用户登录
-
-- **接口：** `POST /login/verify`
-- **请求参数**：
-  | 参数 | 说明 |
-  |------|------|
-  | `username` | 登录用户名（字符串） |
-  | `password` | 通过 RSA 公钥加密的 JSON 字符串（包含 `n`=nonce、`t`=毫秒级时间戳、`p`=明文密码） |
-  | `captcha_id` / `captcha` | 验证码 ID 与验证码（启用验证码时必填） |
-  | `powx` / `bits` | PoW 参数（启用强制 PoW 或命中风控时必填） |
-
-### 用户登出
-
-- **接口：** `GET /login/out`
-
-### 用户注册
-
-- **接口：** `POST /login/register`
-- **请求参数**：
-  | 参数 | 说明 |
-  |------|------|
-  | `username` | 注册用户名（字符串） |
-  | `password` | 通过 RSA 公钥加密的 JSON 字符串（与登录接口一致） |
-  | `captcha_id` / `captcha` | 验证码 ID 与验证码（启用验证码时必填） |
-
-## 全局管理接口（仅管理员）
-
-### 全局黑名单
-
-- **查看页面：** `GET /global/index`
-- **保存配置：** `POST /global/save`
-  - 参数：`globalBlackIpList`（多行 IP）
-
-### 登录封禁管理
-
-- **获取封禁列表：** `POST /global/banlist`
-- **解除指定封禁：** `POST /global/unban`（参数：`key`）
-- **解除全部封禁：** `POST /global/unbanall`
-- **立即清理过期封禁：** `POST /global/banclean`
+旧接口参数命名为下划线表单字段（`client_id`、`flow_limit`…），新接口一律为 JSON camelCase（`clientId`、`flowLimit`…）；旧布尔 `0`/`1` 改为 JSON `true`/`false`。
