@@ -144,6 +144,7 @@ export function ColumnPicker({
         {defs.map((d) => (
           <DropdownMenuCheckboxItem
             key={d.key}
+            className="py-1 text-xs"
             checked={visible(d.key)}
             onCheckedChange={() => onToggle(d.key)}
             onSelect={(e) => e.preventDefault()}
