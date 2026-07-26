@@ -63,11 +63,28 @@ func NewHttpProxy(bridge proxy.NetBridge, task *file.Tunnel, httpPort, httpsPort
 	return httpProxy
 }
 
+// defaultErrorContent is served when no error_page file is configured; the old
+// default pointed at web/static/page/error.html, which no longer ships now
+// that the admin UI is embedded in the binary.
+const defaultErrorContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>404</title>
+</head>
+<body>
+404 Not Found
+</body>
+</html>`
+
 func (s *HttpProxy) Start() error {
-	var err error
-	s.ErrorContent, err = common.ReadAllFromFile(common.ResolvePath(appconfig.AppConfig().DefaultString("error_page", "web/static/page/error.html")))
-	if err != nil {
-		s.ErrorContent = []byte("nps 404")
+	s.ErrorContent = []byte(defaultErrorContent)
+	if p := appconfig.AppConfig().String("error_page"); p != "" {
+		if content, err := common.ReadAllFromFile(common.ResolvePath(p)); err == nil {
+			s.ErrorContent = content
+		} else {
+			logs.Warn("error_page %s unreadable (%v); using built-in page", p, err)
+		}
 	}
 	s.ErrorAlways = appconfig.AppConfig().DefaultBool("error_always", false)
 
