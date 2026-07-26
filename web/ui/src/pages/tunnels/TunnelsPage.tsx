@@ -556,7 +556,12 @@ export default function TunnelsPage() {
           <SearchBox value={state.search} onChange={setSearch} />
           <ColumnPicker defs={defs} visible={visible} onToggle={toggle} />
           <Button asChild>
-            <Link to={`/tunnels/new${clientId ? `?clientId=${clientId}` : ""}`}>
+            <Link
+              to={`/tunnels/new?${new URLSearchParams({
+                ...(mode ? { type: mode } : {}),
+                ...(clientId ? { clientId } : {}),
+              }).toString()}`}
+            >
               <Plus className="size-4" />
               {t("word-add")}
             </Link>

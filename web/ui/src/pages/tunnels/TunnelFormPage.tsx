@@ -105,8 +105,18 @@ export default function TunnelFormPage() {
   const isAdmin = !!user?.isAdmin
   const perms = user?.permissions
 
+  // The sidebar menu is per-mode, so adding from a typed list pins the mode
+  // (?type=). Editing and the untyped "all" list keep it selectable, like the
+  // old add/edit pages.
+  const typeParam = searchParams.get("type")
+  const lockedMode =
+    id === null && typeParam && (TUNNEL_MODES as readonly string[]).includes(typeParam)
+      ? typeParam
+      : null
+
   const [form, setForm] = useState<FormState>(() => ({
     ...EMPTY,
+    mode: lockedMode ?? EMPTY.mode,
     clientId: searchParams.get("clientId") ? Number(searchParams.get("clientId")) : null,
   }))
   const [busy, setBusy] = useState(false)
@@ -204,14 +214,18 @@ export default function TunnelFormPage() {
         <CardContent className="grid gap-4 pt-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label>{t("word-scheme")}</Label>
-            <Select value={form.mode} onValueChange={(v) => set("mode", v)}>
+            <Select
+              value={form.mode}
+              onValueChange={(v) => set("mode", v)}
+              disabled={lockedMode !== null}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {TUNNEL_MODES.map((m) => (
                   <SelectItem key={m} value={m}>
-                    {t(`scheme-${m}`)}
+                    {t(`scheme-${m.toLowerCase()}`)}
                   </SelectItem>
                 ))}
               </SelectContent>

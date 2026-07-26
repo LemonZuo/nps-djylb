@@ -521,7 +521,7 @@ export default function HostsPage() {
                 )}
                 {visible("scheme") && (
                   <TableCell>
-                    <Badge variant="outline">{row.scheme}</Badge>
+                    <Badge variant="outline">{t(`word-${row.scheme}`)}</Badge>
                   </TableCell>
                 )}
                 {visible("targetIsHttps") && (
